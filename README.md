@@ -19,11 +19,11 @@ Build further for **Base, Robinhood Chain and XMBL** directly.
 - **Across rails:** before a Pay button appears, the requester's payments on every mainnet rail are checked, so a task is never paid twice. The mainnet cap (0.50 by default) is one total across all rails.
 - **XMBL:** sealed key release through the handoff broker, testnet only (built; live run waits on Mark's yes).
 
+[handoff](https://handoff.lol) is a coordination server. Agents take tasks there, and another party verifies the work. handoff's mainnet broker holds no treasury key, so nothing pays verified mainnet tasks today. handoff pay adds that payment layer on top without changing handoff: you pay each verified task yourself, from a browser wallet, and the chain records it.
+
 ### Disclosure
 
 - The seal route and @xmbl/identity predate the hackathon; only the integration is new.
-
-[handoff](https://handoff.lol) is a coordination server. Agents take tasks there, and another party verifies the work. handoff's mainnet broker holds no treasury key, so nothing pays verified mainnet tasks today. handoff pay adds that payment layer on top without changing handoff: you pay each verified task yourself, from a browser wallet, and the chain records it.
 
 ## What it does
 
@@ -154,7 +154,7 @@ The scripts are in `xmbl/`, which has its own `package.json` pinned to `@xmbl/id
    - The script refuses any `evm_private_key` argument or field, any mainnet API and any chain other than `base-sepolia`.
    - The response names a one-time address (`fund_here`) and holds the sealed key.
 3. **Worker: claim and check, before anything is funded.** `node claim-and-check.mjs --settlement <id> --claim <claim_id> --seal-response <file> --keys <folder> [--live]`
-   - It MAYO-signs the `claim_id` and claims the seal (only with `--live`).
+   - It MAYO-signs the `claim_id` and claims the seal (only with `--live`). Without `--live` it checks the seal inside the seal response instead.
    - It opens the seal with the worker's Cubic-LWE secret key. It derives the EVM address itself, from the uncompressed public key, and requires that address to equal `fund_here.address`.
    - On a match it prints a check line: `xmbl-check OK settlement=… claim=… fund=0x… receiver=xmb…`. Otherwise it prints `FUNDING UNSAFE` and exits non-zero.
    - The key is never printed, logged or saved; the script zeroes it after use.
@@ -185,7 +185,7 @@ The scripts are in `xmbl/`, which has its own `package.json` pinned to `@xmbl/id
   - the scripts refuse a mainnet API and any chain other than `base-sepolia`.
 - **The XMBL record isn't submitted anywhere.** The seal response's `submitted` is `false` on production, and the app shows it.
 - **Not observed live.** No live seal, claim or sweep has been run.
-  - The flow depends on the worker being able to claim **before** the address is funded, and that hasn't been observed. If the broker refuses the claim until the address is funded, the worker can't check the address first, and this mode must not be used.
+  - Whether the broker lets the worker claim **before** the address is funded hasn't been observed. The check before funding doesn't depend on it: without `--live`, `claim-and-check.mjs` opens the seal in the seal response the requester passed on, so the worker can check that copy first. If the broker refuses the claim until the address is funded, the worker checks that copy before funding, then claims with `--live` after funding, and the script checks the broker's copy again. The remaining risk is that the broker's copy differs from the response; that would only show up after the money is at the address.
   - The wire format of `receiver_lwe_pk` is also assumed: JSON `{ A, b, n, q }` as numbers, about 2.5 MB, under the broker's 4 MB limit. So is `amount_usdc` as a decimal string.
 
 > **Warning: never call `sealChainKey`.** In `@xmbl/identity` 0.1.18 and 0.1.19, `sealChainKey('evm')` reports an address that no key controls, because it hashes the compressed public key. Funds sent there are lost. Nothing in this repo calls it. The scripts derive the address from the uncompressed key and compare it with `fund_here.address`, and a test simulates the bug to show the check catches it. The address that `releaseAndSign` returns has the same bug, though its signature is fine. `sweep.mjs` ignores that address and checks that the signature recovers to the funded one.
