@@ -163,7 +163,7 @@ export async function blockAtOrBefore(rpc, target, latest, cache) {
 // ranges shrink on range/result-limit errors and grow back after successes.
 // Returns { transfers, low, calls, complete }: everything in [low, toBlock]
 // was read; `complete` means low reached fromBlock. At most maxCalls queries.
-export async function scanTransfers({ rpc, rail, from, tos = [], fromBlock, toBlock, maxCalls = Infinity, onProgress, timestampCache }) {
+export async function scanTransfers({ rpc, rail, from, tos = [], fromBlock, toBlock, maxCalls = Infinity, onProgress, timestampCache = new Map(), resolveTimestamps = true }) {
   if (toBlock < fromBlock) return { transfers: [], low: fromBlock, calls: 0, shrinks: 0, complete: true };
   const topics = [TRANSFER_TOPIC, padTopicAddress(from)];
   if (tos.length) topics.push(tos.map(padTopicAddress));
@@ -177,8 +177,17 @@ export async function scanTransfers({ rpc, rail, from, tos = [], fromBlock, toBl
     return out;
   };
   const r = await scanAdaptive({ fetchRange, fromBlock, toBlock, strategy: rail.scan, maxCalls, onProgress });
-  for (const d of r.items) {
-    if (d.timestamp == null) d.timestamp = await blockTimestamp(rpc, d.blockNumber, timestampCache);
+  if (resolveTimestamps) {
+    // Matching needs each transfer's mined time. Logs that carry none (or "0x0")
+    // get it from their block. One claimed value is checked against its block;
+    // if it disagrees, every log's time is read from its block instead.
+    const claimed = r.items.find((d) => d.timestamp != null);
+    if (claimed && (await blockTimestamp(rpc, claimed.blockNumber, timestampCache)) !== claimed.timestamp) {
+      for (const d of r.items) d.timestamp = null;
+    }
+    for (const d of r.items) {
+      if (d.timestamp == null) d.timestamp = await blockTimestamp(rpc, d.blockNumber, timestampCache);
+    }
   }
   r.items.sort((x, y) => x.blockNumber - y.blockNumber || x.logIndex - y.logIndex);
   return { transfers: r.items, low: r.low, calls: r.calls, shrinks: r.shrinks, complete: r.complete };

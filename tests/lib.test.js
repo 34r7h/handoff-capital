@@ -120,6 +120,11 @@ describe('Transfer log decoding', () => {
     assert.equal(d.logIndex, 2);
     assert.equal(d.timestamp, 0x66000000);
   });
+  test('a blockTimestamp of 0x0 means unknown, not the epoch', () => {
+    const log = { topics: [TRANSFER_TOPIC, padTopicAddress(PAYER), padTopicAddress(WORKER)], data: '0x' + '0'.repeat(63) + '1', blockNumber: '0x10', logIndex: '0x0', transactionHash: '0x' + 'ab'.repeat(32), blockTimestamp: '0x0' };
+    assert.equal(decodeTransferLog(log).timestamp, null);
+    assert.equal(decodeTransferLog({ ...log, blockTimestamp: undefined }).timestamp, null);
+  });
   test('ignores other events and removed logs', () => {
     assert.equal(decodeTransferLog({ topics: ['0x' + '11'.repeat(32)], data: '0x' }), null);
     assert.equal(decodeTransferLog({ removed: true, topics: [TRANSFER_TOPIC, padTopicAddress(PAYER), padTopicAddress(WORKER)], data: '0x' + '0'.repeat(64) }), null);

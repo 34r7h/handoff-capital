@@ -128,7 +128,9 @@ export function decodeTransferLog(log) {
     blockNumber: hexNum(log.blockNumber),
     logIndex: hexNum(log.logIndex),
     txHash: log.transactionHash,
-    timestamp: log.blockTimestamp != null ? hexNum(log.blockTimestamp) : null,
+    // Some RPCs send blockTimestamp as "0x0" (Robinhood Chain does, for some
+    // logs); zero means unknown, never the epoch.
+    timestamp: log.blockTimestamp != null && hexNum(log.blockTimestamp) > 0 ? hexNum(log.blockTimestamp) : null,
   };
 }
 
