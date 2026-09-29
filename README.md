@@ -141,11 +141,11 @@ A second way to pay one task, on the testnet side only, in Base Sepolia USDC. Th
 
 > Key release sealed by the handoff broker with experimental, unaudited Cubic-LWE. Not an escrow: the broker minted the key. Testnet only.
 
-**The exception to "No keys".** In this mode a private key exists. The handoff broker mints a fresh EVM key for one payout and seals it to the worker's Cubic-LWE public key (`@xmbl/identity` 0.1.19, n = 729). The broker has seen that key, and the worker's scripts open it. The miniapp itself still never sees a key: it only sends two ordinary transactions from your wallet, each of which you approve.
+**The exception to "No keys".** In this mode a private key exists. The handoff broker mints a fresh EVM key for one payout and seals it to the worker's Cubic-LWE public key (`@xmbl/identity` 0.1.20, n = 729). The broker has seen that key, and the worker's scripts open it. The miniapp itself still never sees a key: it only sends two ordinary transactions from your wallet, each of which you approve.
 
 ### Flow
 
-The scripts are in `xmbl/`, which has its own `package.json` pinned to `@xmbl/identity` 0.1.19. Every script is a dry run unless you pass `--live`.
+The scripts are in `xmbl/`, which has its own `package.json` pinned to `@xmbl/identity` 0.1.20. Every script is a dry run unless you pass `--live`.
 
 1. **Worker: make keys.** `node worker-keys.mjs` writes a fresh Cubic-LWE key pair and a fresh MAYO identity to `keys/worker-<time>/` (gitignored; secret files are mode 0600). It prints only the worker's `xmb…` address and the path of the public key file (about 2.5 MB of JSON). The worker gives both to the requester.
 2. **Requester: ask for a seal.** `node request-seal.mjs --as <agentId> --settlement <id> --payer <0x…> --receiver-xmb <xmb…> --pk <lwe-pk.json> --amount 0.05`
@@ -188,7 +188,7 @@ The scripts are in `xmbl/`, which has its own `package.json` pinned to `@xmbl/id
   - Whether the broker lets the worker claim **before** the address is funded hasn't been observed. The check before funding doesn't depend on it: without `--live`, `claim-and-check.mjs` opens the seal in the seal response the requester passed on, so the worker can check that copy first. If the broker refuses the claim until the address is funded, the worker checks that copy before funding, then claims with `--live` after funding, and the script checks the broker's copy again. The remaining risk is that the broker's copy differs from the response; that would only show up after the money is at the address.
   - The wire format of `receiver_lwe_pk` is also assumed: JSON `{ A, b, n, q }` as numbers, about 2.5 MB, under the broker's 4 MB limit. So is `amount_usdc` as a decimal string.
 
-> **Warning: never call `sealChainKey`.** In `@xmbl/identity` 0.1.18 and 0.1.19, `sealChainKey('evm')` reports an address that no key controls, because it hashes the compressed public key. Funds sent there are lost. Nothing in this repo calls it. The scripts derive the address from the uncompressed key and compare it with `fund_here.address`, and a test simulates the bug to show the check catches it. The address that `releaseAndSign` returns has the same bug, though its signature is fine. `sweep.mjs` ignores that address and checks that the signature recovers to the funded one.
+> **Requires `@xmbl/identity` 0.1.20 or later.** In 0.1.18 and 0.1.19, `sealChainKey('evm')` and `releaseAndSign('evm')` reported an address derived from the compressed public key, which no key controls, so funds sent there were lost. 0.1.20 derives it from the uncompressed key; a local round trip on 0.1.20 gave the same address from the seal and the release, and the signature verified, 3 of 3 times. The scripts don't rely on the package's address anyway: they derive the address from the released key themselves and compare it with `fund_here.address`, a test simulates the old bug to show the check catches it, and `sweep.mjs` checks that the signature recovers to the funded address.
 
 ## Files
 
