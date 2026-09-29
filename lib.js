@@ -671,3 +671,102 @@ export function chunkRanges(from, to, size, descending = false) {
   }
   return out;
 }
+
+// ---------------------------------------------------------------- XMBL sealed release (testnet only)
+
+export const XMBL_LABEL = 'Key release sealed by the handoff broker with experimental, unaudited Cubic-LWE. Not an escrow: the broker minted the key. Testnet only.';
+export const XMBL_CHAIN_ID = 84532; // Base Sepolia
+export const XMBL_GAS_WEI = 20_000_000_000_000n; // 0.00002 ETH sent with the USDC so the worker can pay the sweep's gas
+const XMB = /^xmb[0-9a-f]{40}$/;
+const PRIVATE_FIELD = /evm[_-]?private[_-]?key|private[_-]?key|secret[_-]?key|mnemonic/i;
+
+function findPrivateField(v, p = '') {
+  if (!v || typeof v !== 'object') return null;
+  for (const [k, x] of Object.entries(v)) {
+    if (PRIVATE_FIELD.test(k)) return `${p}${k}`;
+    const deeper = findPrivateField(x, `${p}${k}.`);
+    if (deeper) return deeper;
+  }
+  return null;
+}
+
+// Checks the JSON a requester pastes from /xmbl/settlement/seal. Nothing here trusts the broker:
+// every field the page acts on is validated, and a response carrying a private key is refused.
+export function parseSealResponse(text) {
+  const errors = [];
+  const notes = [];
+  let r;
+  try { r = typeof text === 'string' ? JSON.parse(text) : text; } catch { return { ok: false, errors: ['That is not valid JSON. Paste the whole response from request-seal.'], notes }; }
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return { ok: false, errors: ['The response is not a JSON object.'], notes };
+  const priv = findPrivateField(r);
+  if (priv) errors.push(`The response contains "${priv}". A seal response must never carry a private key; don't use it.`);
+  if (typeof r.claim_id !== 'string' || !r.claim_id) errors.push('claim_id is missing.');
+  const f = r.fund_here && typeof r.fund_here === 'object' ? r.fund_here : {};
+  if (!isAddress(f.address)) errors.push('fund_here.address is not a 0x address.');
+  const chain = String(f.chain ?? 'base-sepolia').toLowerCase();
+  if (!['base-sepolia', '84532', 'eip155:84532'].includes(chain)) errors.push(`fund_here.chain is ${f.chain}; this mode is Base Sepolia only.`);
+  if (f.asset != null && String(f.asset).toUpperCase() !== 'USDC') errors.push(`fund_here.asset is ${f.asset}, not USDC.`);
+  let amountAtomic = null;
+  try {
+    amountAtomic = toAtomic(String(f.amount), 6);
+    if (amountAtomic <= 0n) { amountAtomic = null; errors.push('fund_here.amount is zero.'); }
+  } catch { errors.push(`fund_here.amount "${f.amount}" is not a USDC amount.`); }
+  const s = r.seal && typeof r.seal === 'object' ? r.seal : null;
+  if (!s) errors.push('seal is missing.');
+  else {
+    if (s.alg !== 'xmbl-seal-v1') errors.push(`seal.alg is ${s.alg}, not xmbl-seal-v1.`);
+    if (s.n !== 729) errors.push(`seal.n is ${s.n}, not 729.`);
+    if (!XMB.test(String(s.receiver || ''))) errors.push('seal.receiver is not an xmb… address.');
+  }
+  if (r.submitted === false) notes.push('submitted: false. The broker did not anchor this on XMBL.');
+  return {
+    ok: errors.length === 0,
+    errors,
+    notes,
+    claimId: r.claim_id ?? null,
+    fund: { address: f.address ?? null, amountAtomic, amountText: amountAtomic != null ? formatAtomic(amountAtomic, 6) : null, chain: f.chain ?? null, asset: f.asset ?? 'USDC' },
+    receiver: s?.receiver ?? null,
+    submitted: r.submitted ?? null,
+    type6: r.type6_xid ?? null,
+  };
+}
+
+// The worker's claim-and-check line: "xmbl-check OK settlement=… claim=… fund=0x… receiver=xmb…".
+// It is the worker's own report, not a proof; checking it against the pasted response catches mix-ups.
+export function parseCheckLine(line, seal) {
+  const m = /xmbl-check OK settlement=(\S+) claim=(\S+) fund=(0x[0-9a-fA-F]{40}) receiver=(xmb[0-9a-f]{40})/.exec(String(line || ''));
+  if (!m) return { ok: false, errors: ['Paste the line claim-and-check printed, starting "xmbl-check OK".'] };
+  const [, settlement, claim, fund, receiver] = m;
+  const errors = [];
+  if (seal?.ok) {
+    if (claim !== seal.claimId) errors.push(`The worker checked claim ${claim}, not ${seal.claimId}.`);
+    if (!sameAddress(fund, seal.fund.address)) errors.push(`The worker checked address ${fund}, not ${seal.fund.address}. Don't fund.`);
+    if (receiver !== seal.receiver) errors.push(`The worker's xmb address ${receiver} is not the seal's receiver ${seal.receiver}.`);
+  }
+  return { ok: errors.length === 0, errors, settlement, claim, fund, receiver };
+}
+
+// ERC-20 balanceOf(address) calldata.
+export const encodeBalanceOf = (addr) => `0x70a08231${addr.slice(2).toLowerCase().padStart(64, '0')}`;
+
+// Which funding step the one-time address is at, read from the chain. Only a fresh address (never
+// sent from, holding nothing) is funded, and it is funded with exactly the amount plus the gas top-up.
+export function fundingStep({ usdc, eth, nonce, amountAtomic, gasWei = XMBL_GAS_WEI }) {
+  if (nonce > 0) return { step: 'used', reason: 'The address has already sent a transaction (the worker swept, or it was reused). Fund nothing more; check the legs.' };
+  if (usdc === 0n && eth === 0n) return { step: 'fund-usdc' };
+  if (usdc === amountAtomic && eth === 0n) return { step: 'fund-gas' };
+  if (usdc === amountAtomic && eth >= gasWei) return { step: 'funded' };
+  return { step: 'unsafe', reason: `The address holds ${formatAtomic(usdc, 6)} USDC and ${eth} wei, which isn't a state this app funds from. Stop and check it; never reuse an address.` };
+}
+
+// Plain-text proof of the two Transfer legs.
+export function xmblProofText({ seal, requester, worker, leg1, leg2, explorer }) {
+  const line = (x) => `${formatAtomic(x.amount, 6)} USDC ${x.from} -> ${x.to}, tx ${x.txHash}${explorerTxUrl(explorer, x.txHash) ? ` (${explorerTxUrl(explorer, x.txHash)})` : ''}`;
+  return [
+    'handoff pay: XMBL sealed release proof (testnet, Base Sepolia)',
+    XMBL_LABEL,
+    `claim: ${seal.claimId}; one-time address: ${seal.fund.address}; sealed to ${seal.receiver}`,
+    `leg 1, requester ${requester} -> one-time address: ${leg1 ? line(leg1) : 'not found'}`,
+    `leg 2, one-time address -> worker ${worker || '(any)'}: ${leg2 ? line(leg2) : 'not found'}`,
+  ].join('\n') + '\n';
+}
