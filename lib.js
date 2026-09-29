@@ -1,9 +1,12 @@
 // Pure functions shared by the browser app, the smoke script and the tests.
-// No I/O and no DOM here: everything takes plain data and returns plain data.
+// No I/O and no DOM here: everything takes plain data (or an injected fetch
+// function) and returns plain data.
 
 export const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 export const TRANSFER_SELECTOR = '0xa9059cbb';
 export const UINT256_MAX = (1n << 256n) - 1n;
+export const CAP_DECIMALS = 6; // the mainnet cap is kept in 6-decimal dollar units
+export const STABLECOINS = ['USDC', 'USDG']; // dollar stablecoins a task may be priced in
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const TX_RE = /^0x[0-9a-fA-F]{64}$/;
@@ -74,6 +77,18 @@ export function formatAtomic(atomic, decimals = 6) {
   return `${neg ? '-' : ''}${abs / base}${frac ? `.${frac}` : ''}`;
 }
 
+// Re-express an atomic amount with different decimals, rounding down or up.
+export function scaleAtomic(amount, fromDecimals, toDecimals, roundUp = false) {
+  const a = BigInt(amount);
+  if (toDecimals >= fromDecimals) return a * 10n ** BigInt(toDecimals - fromDecimals);
+  const div = 10n ** BigInt(fromDecimals - toDecimals);
+  const q = a / div;
+  return roundUp && a % div !== 0n ? q + 1n : q;
+}
+
+// A token amount in the cap's 6-decimal units, rounded up so the cap is never undercounted.
+export const toCapUnits = (amount, decimals = 6) => scaleAtomic(amount, decimals, CAP_DECIMALS, true);
+
 // ---------------------------------------------------------------- calldata and logs
 
 export function padTopicAddress(addr) {
@@ -117,41 +132,90 @@ export function decodeTransferLog(log) {
   };
 }
 
-// ---------------------------------------------------------------- settlement rail
+// ---------------------------------------------------------------- rails
 
-function normalizeRail(n) {
+// How to page through eth_getLogs on a rail: start at `initial` blocks per
+// query, grow toward `max` after successes, shrink on range/limit errors.
+const HANDOFF_SCAN = {
+  8453: { initial: 2000, max: 2000, concurrency: 3 }, // Base: 2,000-block cap
+  84532: { initial: 1000, max: 1000, concurrency: 3 }, // Base Sepolia: 1,000-block cap
+};
+const DEFAULT_SCAN = { initial: 1000, max: 5000, concurrency: 2 };
+
+// Rails this app adds on top of handoff's /config/settlement. handoff does not
+// settle on these chains; the app only reads them and pays through the wallet.
+export const APP_RAILS = [
+  {
+    side: 'mainnet',
+    name: 'robinhood',
+    aliases: ['robinhood-chain'],
+    label: 'Robinhood Chain',
+    chainId: 4663,
+    token: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168',
+    symbol: 'USDG',
+    decimals: 6,
+    rpcUrl: 'https://rpc.mainnet.chain.robinhood.com',
+    explorer: 'https://robinhoodchain.blockscout.com/tx/',
+    nativeSymbol: 'ETH',
+    testnet: false,
+    // Its RPC caps a query at 10,000,000 blocks and 10,000 matching logs, not
+    // at a small block range, so a quiet payer's weeks fit in a few calls.
+    scan: { initial: 10_000_000, max: 10_000_000, concurrency: 1 },
+  },
+];
+
+function normalizeRail(n, source) {
+  const chainId = Number(n.chainId);
   const rail = {
-    name: String(n.name ?? `chain-${n.chainId}`),
-    label: String(n.label ?? n.name ?? `Chain ${n.chainId}`),
-    chainId: Number(n.chainId),
-    usdc: n.usdc,
+    name: String(n.name ?? `chain-${chainId}`),
+    aliases: Array.isArray(n.aliases) ? n.aliases.map(String) : [],
+    label: String(n.label ?? n.name ?? `Chain ${chainId}`),
+    chainId,
+    token: n.token ?? n.usdc,
+    symbol: String(n.symbol ?? n.assetName ?? 'USDC'),
     decimals: n.decimals == null ? 6 : Number(n.decimals),
     rpcUrl: n.rpcUrl,
     explorer: n.explorer,
     nativeSymbol: n.nativeSymbol || 'ETH',
     testnet: n.testnet === true,
+    source,
+    scan: { ...(n.scan || HANDOFF_SCAN[chainId] || DEFAULT_SCAN) },
   };
   if (!Number.isInteger(rail.chainId) || rail.chainId <= 0) throw new Error(`rail ${rail.name}: bad chainId`);
-  if (!isAddress(rail.usdc)) throw new Error(`rail ${rail.name}: bad USDC address`);
+  if (!isAddress(rail.token)) throw new Error(`rail ${rail.name}: bad token address`);
   if (!Number.isInteger(rail.decimals)) throw new Error(`rail ${rail.name}: bad decimals`);
   if (typeof rail.rpcUrl !== 'string' || !/^https?:\/\//.test(rail.rpcUrl)) throw new Error(`rail ${rail.name}: bad rpcUrl`);
   if (typeof rail.explorer !== 'string' || !/^https?:\/\//.test(rail.explorer)) throw new Error(`rail ${rail.name}: bad explorer`);
   return rail;
 }
 
-// /config/settlement is { defaultNetwork, networks: [...] } today; a flat
-// { chainId, usdc, ... } object is accepted too.
+// handoff's /config/settlement is { defaultNetwork, networks: [...] } today; a
+// flat { chainId, usdc, ... } object is accepted too. Every rail it lists is
+// marked source 'handoff'.
 export function railsFrom(settlement) {
   if (!settlement || typeof settlement !== 'object') throw new Error('settlement config is empty');
   const list = Array.isArray(settlement.networks) ? settlement.networks : settlement.chainId != null ? [settlement] : [];
   const rails = [];
   for (const n of list) {
-    try { rails.push(normalizeRail(n)); } catch { /* skip malformed entries */ }
+    try { rails.push(normalizeRail(n, 'handoff')); } catch { /* skip malformed entries */ }
   }
   if (!rails.length) throw new Error('settlement config lists no usable network');
   return rails;
 }
 
+// Every rail on one side: handoff's, then the app's for that side (unless
+// handoff already lists the same chain). Throws if handoff's config is unusable,
+// so a side never runs on app rails alone.
+export function railsForSide(side, settlement) {
+  const rails = railsFrom(settlement);
+  for (const r of APP_RAILS) {
+    if (r.side !== side || rails.some((x) => x.chainId === r.chainId)) continue;
+    rails.push(normalizeRail(r, 'app'));
+  }
+  return rails;
+}
+
+// handoff's default rail (or the named one) from its own config.
 export function pickRail(settlement, name) {
   const rails = railsFrom(settlement);
   return rails.find((r) => r.name === name)
@@ -159,9 +223,25 @@ export function pickRail(settlement, name) {
     || rails[0];
 }
 
+// Does a task's payment.network ("base", "eip155:8453", "8453", …) name this rail?
+export function railMatchesNetwork(rail, network) {
+  const n = String(network || '').trim().toLowerCase();
+  if (!n) return false;
+  return n === rail.name.toLowerCase()
+    || rail.aliases.some((a) => a.toLowerCase() === n)
+    || n === `eip155:${rail.chainId}`
+    || n === String(rail.chainId);
+}
+
 export function explorerTxUrl(explorer, tx) {
   if (!isTxHash(tx) || typeof explorer !== 'string' || !explorer) return null;
   return explorer.endsWith('/') ? explorer + tx : `${explorer}/${tx}`;
+}
+
+// "paid in USDG (task priced in USDC)" when the token differs from the price.
+export function tokenLabel(paySymbol, priceCurrency) {
+  if (!paySymbol || !priceCurrency || paySymbol.toUpperCase() === priceCurrency.toUpperCase()) return null;
+  return `paid in ${paySymbol} (task priced in ${priceCurrency})`;
 }
 
 // ---------------------------------------------------------------- tasks
@@ -197,8 +277,8 @@ export function readPayment(task, decimals = 6) {
   if (typeof p !== 'object' || Array.isArray(p)) {
     return { ok: false, reason: `amount "${String(p)}" has no currency or units, so it can't be paid safely` };
   }
-  const currency = p.currency ?? p.asset ?? null;
-  if (currency != null && String(currency).toUpperCase() !== 'USDC') return { ok: false, reason: `priced in ${currency}, not USDC` };
+  const currency = String(p.currency ?? p.asset ?? 'USDC').toUpperCase();
+  if (!STABLECOINS.includes(currency)) return { ok: false, reason: `priced in ${currency}, not a dollar stablecoin this app pays in` };
   if (p.amount == null || p.amount === '') return { ok: false, reason: 'no amount set on the task' };
   let atomic;
   try {
@@ -210,6 +290,7 @@ export function readPayment(task, decimals = 6) {
     ok: true,
     atomic,
     text: formatAtomic(atomic, decimals),
+    currency,
     network: typeof p.network === 'string' && p.network ? p.network : null,
     payTo: typeof p.pay_to === 'string' && p.pay_to ? p.pay_to : null,
   };
@@ -239,19 +320,28 @@ export function receiptTxSet(activity) {
 
 // Everything the app shows for one project, as plain rows.
 // agents: Map(agentId -> { ok: true, agent } | { ok: false, notFound?: true, error?: string })
-// receipts: output of receiptIndex(); rails: every rail on this side (for receipt links).
-export function buildRows({ request, tasks, agents, receipts, rail, rails = [rail] }) {
+// receipts: output of receiptIndex(); rails: every rail on this side; payRail: the one the wallet pays on.
+//
+// Each row has two kinds of blocks:
+//   blocks      task-level: no rail can pay it (worker, verifier, amount, payee…)
+//   railBlocks  only the selected pay rail can't pay it (named network, custodial wallet)
+// `candidate` (task-level only) decides which tasks take part in matching, so
+// switching the pay rail never changes which transfer paid which task.
+export function buildRows({ request, tasks, agents, receipts, payRail, rails = [payRail] }) {
   const rows = [];
   const railByName = new Map(rails.map((r) => [r.name, r]));
   for (const t of tasks || []) {
     if (!t || t.status !== 'verified') continue;
     const v = taskVerification(t, request?.requester);
     const worker = typeof t.assignee === 'string' && t.assignee.trim() ? t.assignee.trim() : null;
-    const pay = readPayment(t, rail.decimals);
+    const pay = readPayment(t, payRail.decimals);
     const a = worker ? agents?.get(worker) : undefined;
     const rawWallet = a?.ok ? a.agent?.wallet_address ?? null : null;
     const wallet = isAddress(rawWallet) ? rawWallet : null;
+    const custodial = a?.ok ? a.agent?.wallet_custodial === true : false;
     const blocks = [];
+    const railBlocks = [];
+    let onlyRail = null;
 
     if (!worker) blocks.push('no worker assigned to the task');
     else if (!a) blocks.push("worker's profile wasn't loaded");
@@ -269,10 +359,18 @@ export function buildRows({ request, tasks, agents, receipts, rail, rails = [rai
     if (!pay.ok) {
       blocks.push(pay.reason);
     } else {
-      if (pay.network && pay.network !== rail.name) blocks.push(`task asks to be paid on ${pay.network}, not ${rail.name}`);
+      if (pay.network) {
+        const named = rails.find((r) => railMatchesNetwork(r, pay.network));
+        if (!named) blocks.push(`task asks to be paid on ${pay.network}, which isn't a rail on this side`);
+        else {
+          onlyRail = named.name;
+          if (named.name !== payRail.name) railBlocks.push(`task asks to be paid on ${named.label}, so only that rail can pay it`);
+        }
+      }
       if (pay.payTo && !isAddress(pay.payTo)) blocks.push(`task names an invalid payee ${pay.payTo}`);
       else if (pay.payTo && wallet && !sameAddress(pay.payTo, wallet)) blocks.push(`task names payee ${pay.payTo}, which is not the worker's wallet`);
     }
+    if (custodial && payRail.source !== 'handoff') railBlocks.push("custodial wallet; handoff doesn't watch this chain");
 
     const r = receipts?.get(t.id);
     let handoffPaid = null;
@@ -284,21 +382,29 @@ export function buildRows({ request, tasks, agents, receipts, rail, rails = [rai
     }
 
     const amountAtomic = pay.ok ? pay.atomic : null;
+    const candidate = blocks.length === 0 && !handoffPaid && amountAtomic != null && amountAtomic > 0n;
     rows.push({
       id: t.id,
       title: typeof t.title === 'string' && t.title.trim() ? t.title : '(untitled task)',
       worker,
       wallet,
+      custodial,
       amountAtomic,
+      amountDecimals: payRail.decimals,
       amountText: pay.ok ? pay.text : null,
+      priceCurrency: pay.ok ? pay.currency : null,
+      payNote: pay.ok ? tokenLabel(payRail.symbol, pay.currency) : null,
       verifier: v.verifier,
       verifierRaw: v.verifierRaw,
       viaRequester: v.viaRequester,
       verifiedAt: v.verifiedAt,
       handoffPaid,
       blocks,
+      railBlocks,
+      onlyRail,
       noPaymentDue: amountAtomic === 0n,
-      payable: blocks.length === 0 && !handoffPaid && amountAtomic != null && amountAtomic > 0n,
+      candidate,
+      payable: candidate && railBlocks.length === 0,
     });
   }
   rows.sort((a, b) => (a.verifiedAt ?? 0) - (b.verifiedAt ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
@@ -309,30 +415,37 @@ export function buildRows({ request, tasks, agents, receipts, rail, rails = [rai
 
 // Pair tasks with transfers already on chain. Each task gets at most one
 // transfer and no transfer is used twice. A transfer counts for a task only if
-// it went to the task's worker wallet, was for at least the task amount, and
-// was mined after the task was verified. Oldest task first, each taking the
-// oldest transfer that fits.
-// tasks: [{ id, wallet, amount: BigInt, verifiedAt: ms }]
-// transfers: [{ to, amount: BigInt, timestamp: unix seconds, blockNumber, logIndex, txHash }]
+// it went to the task's worker wallet, was for at least the task amount (after
+// scaling both by their own decimals), and was mined after the task was
+// verified. Oldest task first, each taking the oldest transfer that fits.
+// Transfers from several rails are ordered by time, since block numbers of
+// different chains can't be compared.
+// tasks: [{ id, wallet, amount: BigInt, decimals?, verifiedAt: ms }]
+// transfers: [{ to, amount: BigInt, decimals?, rail?, timestamp: unix s, blockNumber, logIndex, txHash }]
 export function matchPayments(tasks, transfers) {
   const seen = new Set();
   const pool = [];
   for (const x of transfers) {
-    const key = `${x.txHash}:${x.logIndex}`;
+    const key = `${x.rail ?? ''}:${x.txHash}:${x.logIndex}`;
     if (seen.has(key)) continue;
     seen.add(key);
     pool.push(x);
   }
-  pool.sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex);
+  const ts = (x) => (x.timestamp == null ? Infinity : x.timestamp);
+  pool.sort((a, b) => ts(a) - ts(b)
+    || String(a.rail ?? '').localeCompare(String(b.rail ?? ''))
+    || a.blockNumber - b.blockNumber
+    || a.logIndex - b.logIndex);
   const order = [...tasks].sort((a, b) => a.verifiedAt - b.verifiedAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const used = new Set();
   const out = new Map();
   for (const t of order) {
+    const need = scaleAtomic(t.amount, t.decimals ?? 6, 18);
     for (let i = 0; i < pool.length; i++) {
       if (used.has(i)) continue;
       const x = pool[i];
       if (!sameAddress(x.to, t.wallet)) continue;
-      if (x.amount < t.amount) continue;
+      if (scaleAtomic(x.amount, x.decimals ?? 6, 18) < need) continue;
       if (x.timestamp == null || x.timestamp * 1000 <= t.verifiedAt) continue;
       used.add(i);
       out.set(t.id, x);
@@ -342,72 +455,158 @@ export function matchPayments(tasks, transfers) {
   return out;
 }
 
+// Combine per-rail scans into one answer: which tasks each transfer paid, and
+// which tasks are covered. A task is covered only when EVERY rail in `rails`
+// was checked back to its verification time, so a payment on any of them is
+// seen before a Pay button appears.
+// scans: Map(railName -> { transfers, coveredFromMs }); rails: the rails that must be checked.
+export function combineChecks({ rows, scans, rails, handoffTxs = new Set() }) {
+  const pool = [];
+  let handoffOwned = 0;
+  for (const rail of rails) {
+    for (const x of scans.get(rail.name)?.transfers || []) {
+      if (handoffTxs.has(String(x.txHash).toLowerCase())) { handoffOwned++; continue; }
+      pool.push({ ...x, rail: rail.name, decimals: rail.decimals });
+    }
+  }
+  const covered = new Set();
+  const tasks = [];
+  for (const r of rows) {
+    if (!r.candidate) continue;
+    const ok = rails.length > 0 && rails.every((rail) => {
+      const s = scans.get(rail.name);
+      return s && s.coveredFromMs != null && r.verifiedAt >= s.coveredFromMs;
+    });
+    if (!ok) continue;
+    covered.add(r.id);
+    tasks.push({ id: r.id, wallet: r.wallet, amount: r.amountAtomic, decimals: r.amountDecimals, verifiedAt: r.verifiedAt });
+  }
+  return { match: matchPayments(tasks, pool), covered, handoffOwned, transfers: pool.length };
+}
+
 // ---------------------------------------------------------------- spending cap
 
-// All values in atomic units. cap === null means no cap.
-export function checkCap({ cap, spent, amount, decimals = 6 }) {
+// cap and spent are in CAP_DECIMALS units; amount is in the paying token's
+// decimals. cap === null means no cap.
+export function checkCap({ cap, spent, amount, decimals = 6, unit = 'USDC' }) {
   if (typeof amount !== 'bigint' || amount <= 0n) return { ok: false, reason: 'nothing to pay' };
   if (cap == null) return { ok: true, remaining: null };
-  const after = spent + amount;
+  const after = spent + toCapUnits(amount, decimals);
   if (after > cap) {
     return {
       ok: false,
       remaining: cap - spent,
-      reason: `Paying ${formatAtomic(amount, decimals)} USDC would bring this session to ${formatAtomic(after, decimals)} USDC, over the ${formatAtomic(cap, decimals)} USDC cap.`,
+      reason: `Paying ${formatAtomic(amount, decimals)} would bring this session to ${formatAtomic(after, CAP_DECIMALS)} ${unit}, over the ${formatAtomic(cap, CAP_DECIMALS)} ${unit} cap.`,
     };
   }
   return { ok: true, remaining: cap - after };
 }
 
-// ---------------------------------------------------------------- log scanning helpers
+// ---------------------------------------------------------------- log scanning
 
-// Inclusive block ranges of at most `size` blocks, newest first when descending.
-export function chunkRanges(from, to, size, descending = false) {
-  if (!(size >= 1) || to < from) return [];
-  const out = [];
-  if (descending) {
-    for (let hi = to; hi >= from; hi -= size) out.push([Math.max(from, hi - size + 1), hi]);
-  } else {
-    for (let lo = from; lo <= to; lo += size) out.push([lo, Math.min(to, lo + size - 1)]);
-  }
-  return out;
+export const isRateLimitError = (e) => e?.code === -32005 || e?.code === 429 || /rate limit|too many requests/i.test(e?.message || '');
+
+// Errors that mean "ask for fewer blocks": block-range caps and result-count
+// caps. Rate limits are not among them; those are retried, never shrunk.
+export function isShrinkableLogError(e) {
+  if (!e || isRateLimitError(e)) return false;
+  if (e.code === -32000 || e.code === -32614) return true;
+  const m = String(e.message || '');
+  if (e.code === -32602 && /block|range|spans|allowed/i.test(m)) return true;
+  return /exceeds limit|block range|limited to a|range is too|range too|narrow the|exceed.{0,30}(range|blocks)|query returned more than|too many (blocks|results|logs)|response size/i.test(m);
 }
 
-// "eth_getLogs is limited to a 1,000 range" -> 1000; "up to a 2K block range" -> 2000.
+// A block-range cap stated in an error, or null. A result-count cap
+// ("exceeds limit of 10000") is not a block range and returns null.
+//   "eth_getLogs is limited to a 1,000 range"            -> 1000
+//   "up to a 2K block range"                              -> 2000
+//   "query spans 20000001 blocks …, but only 10000000 are allowed" -> 10000000
 export function parseRangeLimit(message) {
-  const m = /([\d,]+)\s*(k)?\s*(?:block\s*)?range/i.exec(String(message || ''))
-    || /range[^\d]{0,30}([\d,]+)\s*(k)?/i.exec(String(message || ''));
+  const s = String(message || '');
+  const m = /only\s+([\d,]+)\s*(k)?\s*(?:blocks?\s*)?(?:are\s+)?allowed/i.exec(s)
+    || /([\d,]+)\s*(k)?\s*(?:block\s*)?range/i.exec(s)
+    || /range[^\d]{0,30}([\d,]+)\s*(k)?/i.exec(s);
   if (!m) return null;
   const n = Number(m[1].replace(/,/g, '')) * (m[2] ? 1000 : 1);
   return Number.isFinite(n) && n >= 1 ? n : null;
 }
 
+// Walk [fromBlock, toBlock] newest first with an injected fetchRange(lo, hi).
+// - Up to strategy.concurrency ranges are fetched at once; only results that
+//   are contiguous from the top are kept, so coverage never has holes.
+// - A shrinkable error shrinks the range to the stated cap (remembered as the
+//   new max) or to half, and retries. Any other error is thrown.
+// - After two successes in a row the range doubles, up to the max.
+// - At most maxCalls fetches; `low` is the lowest block fully covered.
+export async function scanAdaptive({ fetchRange, fromBlock, toBlock, strategy, maxCalls = Infinity, onProgress }) {
+  const items = [];
+  let max = Math.max(1, strategy.max ?? strategy.initial);
+  let size = Math.max(1, Math.min(strategy.initial, max));
+  const concurrency = Math.max(1, strategy.concurrency || 1);
+  let cursor = toBlock;
+  let calls = 0;
+  let streak = 0;
+  let shrinks = 0;
+  while (cursor >= fromBlock && calls < maxCalls) {
+    const ranges = [];
+    for (let hi = cursor; ranges.length < concurrency && hi >= fromBlock && calls + ranges.length < maxCalls; ) {
+      const lo = Math.max(fromBlock, hi - size + 1);
+      ranges.push([lo, hi]);
+      hi = lo - 1;
+    }
+    calls += ranges.length;
+    const results = await Promise.allSettled(ranges.map(([lo, hi]) => fetchRange(lo, hi)));
+    let failure = null;
+    for (let i = 0; i < results.length; i++) {
+      if (results[i].status === 'rejected') { failure = { error: results[i].reason, range: ranges[i] }; break; }
+      items.push(...(results[i].value || []));
+      cursor = ranges[i][0] - 1;
+    }
+    if (failure) {
+      const { error, range: [lo, hi] } = failure;
+      const span = hi - lo + 1;
+      if (!isShrinkableLogError(error) || span <= 1) throw error;
+      const limit = parseRangeLimit(error.message);
+      if (limit && limit < span) { size = limit; max = Math.min(max, limit); } else size = Math.max(1, Math.floor(span / 2));
+      streak = 0;
+      shrinks++;
+    } else if (++streak >= 2 && size < max) {
+      size = Math.min(max, size * 2);
+      streak = 0;
+    }
+    onProgress?.({ low: cursor + 1, fromBlock, toBlock, calls, size });
+  }
+  return { items, low: cursor + 1, calls, shrinks, complete: cursor < fromBlock };
+}
+
 // ---------------------------------------------------------------- status and proof
 
-// What to show for a row given what the chain scan knows.
-// scan: { payer, match: Map, coveredFromMs } or null when no wallet has been checked.
-export function rowStatus(row, scan) {
+// What to show for a row given what the chain checks know.
+// check: output of combineChecks(), or null when no wallet has been checked.
+export function rowStatus(row, check) {
   if (row.handoffPaid) return { kind: 'handoff', tx: row.handoffPaid.tx, url: row.handoffPaid.url };
   if (row.noPaymentDue) return { kind: 'none' };
-  const m = scan?.match?.get(row.id);
+  const m = check?.match?.get(row.id);
   if (m) return { kind: 'wallet', tx: m.txHash, transfer: m };
-  if (row.blocks.length) return { kind: 'blocked' };
-  if (!scan) return { kind: 'unpaid', checked: false };
-  if (scan.coveredFromMs == null || row.verifiedAt < scan.coveredFromMs) return { kind: 'unchecked' };
+  if (row.blocks.length || row.railBlocks?.length) return { kind: 'blocked' };
+  if (!check) return { kind: 'unpaid', checked: false };
+  if (!check.covered?.has(row.id)) return { kind: 'unchecked' };
   return { kind: 'unpaid', checked: true };
 }
 
-// Plain text a requester can paste into handoff by hand.
-export function proofText({ side, rail, project, payer, rows, scan, generatedAt = new Date() }) {
+// Plain text a requester can paste into handoff by hand. Each payment uses its
+// own rail for the chain, token and explorer link.
+export function proofText({ side, rails, project, payer, rows, check, generatedAt = new Date() }) {
+  const railByName = new Map(rails.map((r) => [r.name, r]));
   const lines = [];
   const mine = [];
   const handoff = [];
   for (const r of rows) {
-    const s = rowStatus(r, scan);
+    const s = rowStatus(r, check);
     if (s.kind === 'wallet') mine.push([r, s]);
     else if (s.kind === 'handoff') handoff.push([r, s]);
   }
-  lines.push(`handoff pay: payment proof (${side}, ${rail.label}, chain ${rail.chainId})`);
+  lines.push(`handoff pay: payment proof (${side})`);
   if (project) lines.push(`project: ${project.id}${project.title ? ` (${project.title})` : ''}`);
   lines.push(`generated: ${generatedAt.toISOString()}`);
   if (payer) lines.push(`payer wallet: ${payer}`);
@@ -415,15 +614,29 @@ export function proofText({ side, rail, project, payer, rows, scan, generatedAt 
   const block = ([r, s], by) => {
     lines.push(`task ${r.id}: ${r.title}`);
     lines.push(`  worker: ${r.worker ?? 'unknown'}${r.wallet ? ` (${r.wallet})` : ''}`);
-    const amt = s.kind === 'wallet' ? `${formatAtomic(s.transfer.amount, rail.decimals)} USDC sent` : '';
-    lines.push(`  amount: ${r.amountText ?? '?'} USDC${amt ? ` (${amt})` : ''}`);
-    lines.push(`  paid by: ${by}`);
-    if (s.tx) {
+    const price = `${r.amountText ?? '?'} ${r.priceCurrency ?? 'USDC'}`;
+    if (s.kind === 'wallet') {
+      const rail = railByName.get(s.transfer.rail);
+      const sym = rail?.symbol ?? '';
+      lines.push(`  amount: ${price} (${formatAtomic(s.transfer.amount, rail?.decimals ?? 6)} ${sym} sent)`);
+      const label = tokenLabel(sym, r.priceCurrency ?? 'USDC');
+      if (label) lines.push(`  ${label}`);
+      lines.push(`  paid by: ${by}`);
+      if (rail) lines.push(`  chain: ${rail.label} (${rail.chainId})`);
       lines.push(`  tx: ${s.tx}`);
-      const url = s.kind === 'wallet' ? explorerTxUrl(rail.explorer, s.tx) : s.url;
+      const url = rail ? explorerTxUrl(rail.explorer, s.tx) : null;
       if (url) lines.push(`  link: ${url}`);
     } else {
-      lines.push(`  tx: not in handoff's public activity feed${r.handoffPaid?.receiptId ? ` (receipt ${r.handoffPaid.receiptId})` : ''}`);
+      lines.push(`  amount: ${price}`);
+      lines.push(`  paid by: ${by}`);
+      const rail = railByName.get(r.handoffPaid?.network);
+      if (rail) lines.push(`  chain: ${rail.label} (${rail.chainId})`);
+      if (s.tx) {
+        lines.push(`  tx: ${s.tx}`);
+        if (s.url) lines.push(`  link: ${s.url}`);
+      } else {
+        lines.push(`  tx: not in handoff's public activity feed${r.handoffPaid?.receiptId ? ` (receipt ${r.handoffPaid.receiptId})` : ''}`);
+      }
     }
     lines.push('');
   };
@@ -443,4 +656,16 @@ export function proofText({ side, rail, project, payer, rows, scan, generatedAt 
 export function extractProjectId(input) {
   const m = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(String(input || ''));
   return m ? m[0].toLowerCase() : null;
+}
+
+// Fixed-size inclusive block ranges, newest first when descending.
+export function chunkRanges(from, to, size, descending = false) {
+  if (!(size >= 1) || to < from) return [];
+  const out = [];
+  if (descending) {
+    for (let hi = to; hi >= from; hi -= size) out.push([Math.max(from, hi - size + 1), hi]);
+  } else {
+    for (let lo = from; lo <= to; lo += size) out.push([lo, Math.min(to, lo + size - 1)]);
+  }
+  return out;
 }
