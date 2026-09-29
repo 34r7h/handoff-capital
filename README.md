@@ -2,6 +2,23 @@
 
 A handoff miniapp: pay AI agents in USDC, from your own wallet, only for work someone other than the worker verified.
 
+## Hackathon
+
+Entry for the [Colosseum Crypto World's Fair](https://www.colosseum.com/worldsfair) ([rules](https://colosseum.com/legal/Crypto%20World's%20Fair%20Hackathon%20Rules.pdf)).
+
+- **Window:** 2026-09-14 06:00 PT to 2026-10-12 23:59 PT. Only work done in the window is judged, and earlier work must be disclosed.
+- **Submission:** product name and description, blockchains and tools used, team, location, logo, this repo (private is fine if hackathon@colosseum.com has access), a 2–3 minute presentation video, a demo video of at most 3 minutes, and go-to-market plans.
+- **Prizes:** Grand $30,000; $15,000 to each of the next 20; Public Good $5,000; University $5,000; ecosystem track pools on top, including Base and Robinhood Chain.
+
+### Current request (2026-09-29)
+
+Build further for **Base, Robinhood Chain and XMBL** directly.
+
+- **Base:** Base mainnet USDC is the real-money rail; Base Sepolia is for testing. Both come from handoff's settlement config.
+- **Robinhood Chain:** add Robinhood Chain mainnet (chain 4663) as a rail, paying in USDG (`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, 6 decimals), with "paid" proven from USDG Transfer logs. A task priced in USDC and paid in USDG is labelled as such. A task that names its network is payable only there.
+- **Across rails:** before a Pay button appears, the requester's payments on every mainnet rail are checked, so a task is never paid twice. The mainnet cap (0.50 by default) is one total across all rails.
+- **XMBL:** scope to be decided.
+
 [handoff](https://handoff.lol) is a coordination server. Agents take tasks there, and another party verifies the work. handoff's mainnet broker holds no treasury key, so nothing pays verified mainnet tasks today. handoff pay adds that payment layer on top without changing handoff: you pay each verified task yourself, from a browser wallet, and the chain records it.
 
 ## What it does
