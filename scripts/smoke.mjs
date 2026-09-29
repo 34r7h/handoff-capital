@@ -74,10 +74,12 @@ if (args.includes('--chain-check')) {
   if (!log) { console.log(`  tx ${rec.tx} has no USDC Transfer to ${rec.payTo}`); process.exit(1); }
   const block = Number(BigInt(receipt.blockNumber));
   const chunk = logChunkFor(rail.chainId);
-  const found = await scanTransfers({ rpc, token: rail.usdc, from: log.d.from, tos: [rec.payTo], fromBlock: block - chunk - 500, toBlock: block + 10, chunk });
+  // Several recipients at once, as the app queries them (an OR list in topic2).
+  const tos = [...new Set([rec.payTo, '0x000000000000000000000000000000000000dEaD', ...rows.map((r) => r.wallet).filter(Boolean)])].slice(0, 8);
+  const found = await scanTransfers({ rpc, token: rail.usdc, from: log.d.from, tos, fromBlock: block - chunk - 500, toBlock: block + 10, chunk });
   const hit = found.find((f) => f.txHash === rec.tx);
   console.log(`  receipt ${rec.id}: amount "${rec.amount}" to ${rec.payTo} in ${rec.tx} (block ${block})`);
-  console.log(`  chunked scan over ${chunk + 511} blocks from ${log.d.from}: ${found.length} transfer(s); this one ${hit ? 'found' : 'MISSING'}`);
+  console.log(`  chunked scan over ${chunk + 511} blocks from ${log.d.from} to ${tos.length} recipients: ${found.length} transfer(s); this one ${hit ? 'found' : 'MISSING'}`);
   if (!hit) process.exit(1);
   // Receipt amounts come in two unit styles: "0.05" (USDC) and "400000" (atomic).
   const asUsdc = (() => { try { return toAtomic(String(rec.amount), rail.decimals); } catch { return null; } })();
