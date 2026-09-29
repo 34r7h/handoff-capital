@@ -71,7 +71,7 @@ The URL remembers what you're looking at, e.g. `#side=testnet&project=<id>`.
     - it went to that task's worker wallet;
     - it was for at least the task amount, compared after scaling each by its own decimals;
     - it was mined after the task's verification time.
-  - Transfers from different chains are ordered by time, since block numbers of different chains can't be compared.
+  - Transfers from different chains are ordered by time, since block numbers of different chains can't be compared. Each transfer's time comes from its block, not from the log alone (see the data notes below).
   - Tasks are matched oldest-verified first, each to the oldest transfer that fits. A task gets at most one transfer, and a transfer never counts twice.
   - A payment on **any** rail counts, including for a task that names its network. The network rule limits where the app will pay, not which payments count.
   - Transfers that handoff's activity feed reports as its own payouts are left out.
@@ -172,6 +172,7 @@ Both only read; neither sends nor signs anything.
 - `verified_by` may be `"requester"`, which the app resolves to the project's requester, or an id followed by prose. The verification time is the last `verified` entry in `status_history`; there is no `verified_at` field.
 - Some verified tasks have no `assignee`.
 - Receipt amounts in `/activity` come in two unit styles: `"0.05"` (USDC) and `"400000"` (atomic).
+- Robinhood Chain's RPC returns `blockTimestamp: "0x0"` on some logs. The app treats a zero or missing log time as unknown and reads the time from the block. It also checks one claimed time per scan against its block, and if that doesn't match, reads every time from its block.
 - Almost every worker wallet is custodial. On testnet, 56 of the 58 workers with a wallet have `wallet_custodial: true`; the other two have no `wallet_custodial` field. So most real tasks can be paid on Base but not on Robinhood Chain.
 
 ## Licence
