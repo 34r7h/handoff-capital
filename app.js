@@ -1,25 +1,26 @@
-// handoff pay: browser UI. Reads handoff (GET only) and the chain; sends USDC
-// only through the connected wallet after the user confirms each payment.
+// handoff pay: browser UI. Reads handoff (GET only) and the chains; sends a
+// stablecoin transfer only through the connected wallet, after the user confirms.
 import {
   SIDES, getSettlement, listProjects, getProject, getTasks, getActivity, getAgents,
-  makeRpc, walletRpc, latestBlock, blockTimestamp, blockAtOrBefore, scanTransfers, waitForReceipt, logChunkFor,
+  makeRpc, walletRpc, latestBlock, blockTimestamp, blockAtOrBefore, scanTransfers, waitForReceipt,
 } from './api.js';
 import {
-  railsFrom, pickRail, buildRows, receiptIndex, matchPayments, rowStatus, checkCap, encodeTransfer,
-  toAtomic, formatAtomic, explorerTxUrl, isTxHash, sameAddress, proofText, extractProjectId, receiptTxSet,
+  railsForSide, pickRail, buildRows, receiptIndex, receiptTxSet, combineChecks, rowStatus, checkCap, toCapUnits,
+  encodeTransfer, toAtomic, formatAtomic, explorerTxUrl, isAddress, isTxHash, sameAddress, proofText, extractProjectId,
+  CAP_DECIMALS,
 } from './lib.js';
 
 document.getElementById('boot')?.remove();
 
 const CAP_KEY = 'handoff-pay:mainnet-cap';
-const CAP_DEFAULT = 500000n; // 0.50 USDC in atomic units
-const SCAN_ROUND_CHUNKS = 150; // eth_getLogs calls per "check" round
+const CAP_DEFAULT = 500000n; // 0.50 in 6-decimal dollar units, across every mainnet rail
+const ROUND_CALLS = 150; // eth_getLogs calls per rail per "check further back" round
 
 const state = {
   side: 'testnet',
   settlement: null,
   rails: [],
-  rail: null,
+  payRail: null,
   railError: null,
   projects: null,
   projectsError: null,
@@ -34,11 +35,12 @@ const state = {
   rows: [],
   projectError: null,
   wallet: { account: null, chainId: null, error: null, busy: false },
-  scan: null,
+  scans: new Map(), // rail name -> { key, low, high, coveredFromMs, transfers, calls, tsCache }
+  scanErrors: new Map(), // rail name -> message
+  scanProgress: new Map(), // rail name -> text
   scanBusy: false,
-  scanError: null,
-  scanProgress: null,
-  pending: new Map(),
+  check: null, // combineChecks() over the rails that must be checked
+  pending: new Map(), // task id -> { hash, state, rail }
   sending: false,
   payMsg: null,
   cap: loadCap(),
@@ -70,11 +72,16 @@ function h(tag, attrs, ...children) {
 const link = (href, text) => (href ? h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, text) : null);
 const msg = (kind, ...text) => h('div', { class: `msg ${kind}` }, ...text);
 const when = (ms) => (ms == null ? 'unknown time' : new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }));
-const usdc = (atomic) => `${formatAtomic(atomic, state.rail?.decimals ?? 6)} USDC`;
+const tokenAmount = (atomic, rail) => `${formatAtomic(atomic, rail?.decimals ?? 6)} ${rail?.symbol ?? ''}`.trim();
+const railByName = (name) => state.rails.find((r) => r.name === name) || null;
 const api = () => SIDES[state.side].api;
 const eth = () => window.ethereum;
 
-// ---------------------------------------------------------------- cap (mainnet only)
+// Mainnet checks every rail before paying, so nothing is paid twice across
+// chains. Testnet checks only the rail you pay on.
+const checkRails = () => (state.side === 'mainnet' ? state.rails : state.payRail ? [state.payRail] : []);
+
+// ---------------------------------------------------------------- cap (mainnet only, one total across rails)
 
 function loadCap() {
   try {
@@ -90,21 +97,23 @@ function saveCap() {
   try { sessionStorage.setItem(CAP_KEY, JSON.stringify({ cap: String(state.cap.cap), spent: String(state.cap.spent) })); } catch { /* ignore */ }
 }
 const capApplies = () => state.side === 'mainnet';
+const capUnit = () => [...new Set(state.rails.map((r) => r.symbol))].join('+') || 'USDC';
 
 // ---------------------------------------------------------------- loading
 
 async function loadSide(side) {
   state.side = side;
-  state.settlement = null; state.rails = []; state.rail = null; state.railError = null;
+  state.settlement = null; state.rails = []; state.payRail = null; state.railError = null;
   state.projects = null; state.projectsError = null;
   clearProject();
   render();
   try {
     state.settlement = await getSettlement(api());
-    state.rails = railsFrom(state.settlement);
-    state.rail = pickRail(state.settlement);
+    state.rails = railsForSide(side, state.settlement); // throws unless handoff's rails load, so app rails never stand alone
+    state.payRail = state.rails.find((r) => r.name === pickRail(state.settlement).name) || state.rails[0];
   } catch (e) {
-    state.railError = `Couldn't load the payment rail from ${api()}/config/settlement: ${e.message}`;
+    state.rails = []; state.payRail = null;
+    state.railError = `Couldn't load the payment rails from ${api()}/config/settlement: ${e.message}`;
   }
   render();
   try {
@@ -121,11 +130,11 @@ function clearProject() {
   state.project = null; state.tasks = []; state.rows = []; state.agents = new Map();
   state.projectError = null; state.activityError = null;
   state.pending = new Map(); // sent payments stay locked until the project changes
-  resetScan();
+  resetScans();
 }
 
-function resetScan() {
-  state.scan = null; state.scanError = null; state.scanProgress = null;
+function resetScans() {
+  state.scans = new Map(); state.scanErrors = new Map(); state.scanProgress = new Map(); state.check = null;
   state.payMsg = null; state.proofMsg = null; state.proofFallback = null;
 }
 
@@ -143,7 +152,7 @@ async function loadProject(raw) {
     render();
     return;
   }
-  if (!state.rail) { state.projectError = 'The payment rail isn\'t loaded yet.'; render(); return; }
+  if (!state.payRail) { state.projectError = 'The payment rails aren\'t loaded yet.'; render(); return; }
   clearProject();
   state.projectInput = id;
   state.loading = 'Loading project…';
@@ -185,15 +194,34 @@ async function loadProject(raw) {
 }
 
 function rebuildRows() {
-  if (!state.project || !state.rail) { state.rows = []; return; }
-  state.rows = buildRows({ request: state.project, tasks: state.tasks, agents: state.agents, receipts: state.receipts, rail: state.rail, rails: state.rails });
+  if (!state.project || !state.payRail) { state.rows = []; return; }
+  state.rows = buildRows({ request: state.project, tasks: state.tasks, agents: state.agents, receipts: state.receipts, payRail: state.payRail, rails: state.rails });
+  recomputeCheck();
+}
+
+function recomputeCheck() {
+  state.check = state.scans.size ? combineChecks({ rows: state.rows, scans: state.scans, rails: checkRails(), handoffTxs: state.handoffTxs }) : null;
 }
 
 function setHash() {
   const p = new URLSearchParams({ side: state.side });
   if (state.project) p.set('project', state.project.id);
-  if (state.rail && state.settlement && state.rail.name !== pickRail(state.settlement).name) p.set('network', state.rail.name);
+  if (state.payRail && state.settlement && state.payRail.name !== pickRail(state.settlement).name) p.set('network', state.payRail.name);
   history.replaceState(null, '', `#${p}`);
+}
+
+function selectPayRail(name) {
+  const rail = railByName(name);
+  if (!rail || rail === state.payRail) return;
+  state.payRail = rail;
+  state.payMsg = null;
+  rebuildRows(); // candidates don't depend on the pay rail, so mainnet checks stay valid
+  setHash();
+  render();
+  (async () => {
+    if (state.wallet.account) await switchChain();
+    if (canScan()) checkPayments({ back: true }); // testnet checks the newly chosen rail
+  })();
 }
 
 // ---------------------------------------------------------------- wallet
@@ -205,8 +233,9 @@ function walletError(e) {
   return e?.message || String(e);
 }
 
-const onRightChain = () => state.wallet.account && state.rail && state.wallet.chainId === state.rail.chainId;
-const canScan = () => onRightChain() && state.project && state.rows.some((r) => r.payable);
+const onPayChain = () => state.wallet.account && state.payRail && state.wallet.chainId === state.payRail.chainId;
+const candidates = () => state.rows.filter((r) => r.candidate);
+const canScan = () => !!(state.wallet.account && state.project && candidates().length && checkRails().length);
 
 async function connectWallet() {
   state.wallet.error = null;
@@ -231,7 +260,7 @@ async function connectWallet() {
 }
 
 function setAccount(account) {
-  if (!sameAddress(account, state.wallet.account)) resetScan();
+  if (!sameAddress(account, state.wallet.account)) resetScans();
   state.wallet.account = account || null;
 }
 
@@ -246,12 +275,11 @@ function attachListeners() {
   eth().on('chainChanged', (hex) => {
     state.wallet.chainId = Number.parseInt(hex, 16);
     render();
-    if (canScan() && !state.scan) checkPayments({ back: true });
   });
 }
 
 async function ensureChain() {
-  const rail = state.rail;
+  const rail = state.payRail;
   if (!rail) return false;
   const want = `0x${rail.chainId.toString(16)}`;
   let current = await eth().request({ method: 'eth_chainId' });
@@ -282,77 +310,77 @@ async function switchChain() {
   state.wallet.error = null;
   try { await ensureChain(); } catch (e) { state.wallet.error = walletError(e); }
   render();
-  if (canScan()) checkPayments({ back: true });
+  if (canScan() && !state.check) checkPayments({ back: true });
 }
 
-// ---------------------------------------------------------------- reading payments from the chain
+// ---------------------------------------------------------------- reading payments from the chains
 
-// One round: pick up new blocks since the last check, then (when `back`)
-// extend the checked range back toward the oldest unpaid verification, at most
-// SCAN_ROUND_CHUNKS log queries per round.
+// One round on every rail that must be checked (in parallel): pick up new
+// blocks since the last check, then (when `back`) extend the checked range back
+// toward the oldest unpaid verification, at most ROUND_CALLS queries per rail.
+// Scans read the rails' public RPCs, so the wallet can be on any chain.
 async function checkPayments({ back = true } = {}) {
   if (state.scanBusy || !canScan()) return;
-  const rail = state.rail;
   const payer = state.wallet.account;
   const projectId = state.project.id;
-  const candidates = state.rows.filter((r) => r.payable);
-  const tos = [...new Set(candidates.map((r) => r.wallet.toLowerCase()))].sort();
-  const key = `${payer.toLowerCase()}|${rail.name}|${projectId}|${tos.join(',')}`;
-  const rpc = makeRpc(rail.rpcUrl);
-  const chunk = logChunkFor(rail.chainId);
-  state.scanBusy = true; state.scanError = null; state.scanProgress = { phase: 'Reading the latest block…' };
+  const cands = candidates();
+  const tos = [...new Set(cands.map((r) => r.wallet.toLowerCase()))].sort();
+  const oldest = Math.min(...cands.map((r) => r.verifiedAt));
+  const rails = checkRails();
+  state.scanBusy = true; state.scanErrors = new Map(); state.scanProgress = new Map();
   render();
-  try {
-    let scan = state.scan?.key === key ? state.scan : null;
-    const latest = await latestBlock(rpc);
-    if (!scan) {
-      scan = { key, payer, rail: rail.name, tos, low: latest + 1, high: latest, coveredFromMs: null, transfers: [], match: new Map(), tsCache: new Map() };
-      back = true;
-    } else if (latest > scan.high) {
-      state.scanProgress = { phase: 'Checking new blocks' };
-      progress();
-      const fresh = await scanTransfers({ rpc, token: rail.usdc, from: payer, tos, fromBlock: scan.high + 1, toBlock: latest, chunk, timestampCache: scan.tsCache, onProgress: progressOf('Checking new blocks') });
-      scan.transfers.push(...fresh);
-      scan.high = latest;
-    }
-    const oldest = Math.min(...candidates.map((r) => r.verifiedAt));
-    const needBack = scan.coveredFromMs == null || scan.coveredFromMs > oldest;
-    if (back && needBack) {
-      state.scanProgress = { phase: 'Finding where to start' };
-      progress();
-      const stop = await blockAtOrBefore(rpc, Math.floor(oldest / 1000), latest, scan.tsCache);
-      const low = Math.max(stop, scan.low - SCAN_ROUND_CHUNKS * chunk, 0);
-      if (low < scan.low) {
-        const older = await scanTransfers({ rpc, token: rail.usdc, from: payer, tos, fromBlock: low, toBlock: scan.low - 1, chunk, timestampCache: scan.tsCache, onProgress: progressOf('Checking your past transfers') });
-        scan.transfers.push(...older);
-        scan.low = low;
-        scan.coveredFromMs = (await blockTimestamp(rpc, low, scan.tsCache)) * 1000;
-      }
-    }
-    // Only tasks verified inside the checked range take part in matching, so a
-    // task outside it can never claim a transfer that belongs to one inside it.
-    const inRange = candidates.filter((r) => scan.coveredFromMs != null && r.verifiedAt >= scan.coveredFromMs);
-    // Transfers handoff itself reported as payouts (e.g. settled from a custodial
-    // requester wallet) paid other tasks, so they don't count here.
-    const own = scan.transfers.filter((x) => !state.handoffTxs.has(String(x.txHash).toLowerCase()));
-    scan.handoffOwned = scan.transfers.length - own.length;
-    scan.match = matchPayments(inRange.map((r) => ({ id: r.id, wallet: r.wallet, amount: r.amountAtomic, verifiedAt: r.verifiedAt })), own);
-    if (state.wallet.account === payer && state.project?.id === projectId && state.rail === rail) state.scan = scan;
-  } catch (e) {
-    state.scanError = `Couldn't read your transfers from ${new URL(rail.rpcUrl).host}: ${e.message}. Nothing was marked unpaid because of this; try again in a moment.`;
-  }
-  state.scanBusy = false; state.scanProgress = null;
+  await Promise.all(rails.map((rail) => scanRail(rail, { payer, projectId, tos, oldest, back })));
+  state.scanBusy = false; state.scanProgress = new Map();
+  if (sameAddress(state.wallet.account, payer) && state.project?.id === projectId) recomputeCheck();
   render();
 }
 
-function progressOf(phase) {
-  return ({ scanned, total }) => { state.scanProgress = { phase, scanned, total }; progress(); };
+async function scanRail(rail, { payer, projectId, tos, oldest, back }) {
+  const key = `${payer.toLowerCase()}|${rail.name}|${projectId}|${tos.join(',')}`;
+  const rpc = makeRpc(rail.rpcUrl);
+  const show = (text) => { state.scanProgress.set(rail.name, text); progress(); };
+  try {
+    show('reading the latest block…');
+    let scan = state.scans.get(rail.name);
+    if (scan?.key !== key) scan = null;
+    const latest = await latestBlock(rpc);
+    let doBack = back;
+    if (!scan) {
+      scan = { key, low: latest + 1, high: latest, coveredFromMs: null, transfers: [], calls: 0, tsCache: new Map() };
+      doBack = true;
+    } else if (latest > scan.high) {
+      const r = await scanTransfers({ rpc, rail, from: payer, tos, fromBlock: scan.high + 1, toBlock: latest, timestampCache: scan.tsCache, onProgress: ({ calls }) => show(`new blocks, ${calls} call${calls === 1 ? '' : 's'}`) });
+      scan.transfers.push(...r.transfers);
+      scan.calls += r.calls;
+      scan.high = latest;
+    }
+    if (doBack && (scan.coveredFromMs == null || scan.coveredFromMs > oldest)) {
+      show('finding where to start…');
+      const stop = await blockAtOrBefore(rpc, Math.floor(oldest / 1000), latest, scan.tsCache);
+      if (stop < scan.low) {
+        const r = await scanTransfers({
+          rpc, rail, from: payer, tos, fromBlock: stop, toBlock: scan.low - 1, maxCalls: ROUND_CALLS, timestampCache: scan.tsCache,
+          onProgress: ({ low, fromBlock, toBlock, calls }) => show(`${Math.round((100 * (toBlock - low + 1)) / (toBlock - fromBlock + 1))}% of ${(toBlock - fromBlock + 1).toLocaleString()} blocks, ${calls} call${calls === 1 ? '' : 's'}`),
+        });
+        scan.transfers.push(...r.transfers);
+        scan.calls += r.calls;
+        if (r.low < scan.low) {
+          scan.low = r.low;
+          scan.coveredFromMs = (await blockTimestamp(rpc, r.low, scan.tsCache)) * 1000;
+        }
+      }
+    }
+    if (sameAddress(state.wallet.account, payer) && state.project?.id === projectId) state.scans.set(rail.name, scan);
+  } catch (e) {
+    state.scanErrors.set(rail.name, `Couldn't read your ${rail.symbol} transfers on ${rail.label} (${new URL(rail.rpcUrl).host}): ${e.message}. Tasks stay unchecked, so nothing can be paid until this works; try again in a moment.`);
+  }
+  state.scanProgress.delete(rail.name);
 }
+
 function progress() {
   const el = document.getElementById('scan-progress');
   if (!el) return;
-  const p = state.scanProgress;
-  el.textContent = !p ? '' : p.total ? `${p.phase}: ${Math.round((100 * p.scanned) / p.total)}% of ${p.total.toLocaleString()} blocks` : `${p.phase}…`;
+  el.textContent = [...state.scanProgress].map(([name, text]) => `${railByName(name)?.label ?? name}: ${text}`).join(' · ');
 }
 
 // ---------------------------------------------------------------- paying
@@ -362,46 +390,47 @@ async function pay(row) {
   state.sending = true; // lock every Pay button before the first await
   state.payMsg = null;
   render();
-  const rail = state.rail;
+  const rail = state.payRail;
   const amount = row.amountAtomic;
-  let reserved = false;
+  let reserved = 0n;
   let pending = null;
   try {
     const accounts = await eth().request({ method: 'eth_accounts' });
-    if (!state.scan || !sameAddress(accounts?.[0], state.scan.payer)) throw new Error('Your wallet account changed since the last check. Check payments again before paying.');
+    if (!sameAddress(accounts?.[0], state.wallet.account)) throw new Error('Your wallet account changed since the last check. Check payments again before paying.');
     const chain = Number.parseInt(await eth().request({ method: 'eth_chainId' }), 16);
     if (chain !== rail.chainId) throw new Error(`Your wallet is on chain ${chain}. Switch it to ${rail.label} first.`);
 
-    // Re-read the chain right before paying, in case this task was paid elsewhere since the last check.
+    // Re-read every rail right before paying, in case this task was paid elsewhere since the last check.
     if (state.scanBusy) throw new Error('A payment check is running. Wait for it to finish, then pay.');
     await checkPayments({ back: false });
-    if (state.scanError) throw new Error('Couldn\'t re-read the chain just now, so nothing was sent. Try again in a moment.');
-    const scan = state.scan;
-    const status = rowStatus(row, scan);
-    if (!state.rows.includes(row) || state.rail !== rail || !scan
+    if (state.scanErrors.size) throw new Error('Couldn\'t re-read every rail just now, so nothing was sent. Try again in a moment.');
+    const status = rowStatus(row, state.check);
+    if (!state.rows.includes(row) || state.payRail !== rail || !state.check
       || !(row.payable && status.kind === 'unpaid' && status.checked) || state.pending.has(row.id)) {
-      throw new Error('This task isn\'t confirmed unpaid on chain, so nothing was sent.');
+      throw new Error('This task isn\'t confirmed unpaid on every rail, so nothing was sent.');
     }
     if (capApplies()) {
-      const c = checkCap({ cap: state.cap.cap, spent: state.cap.spent, amount, decimals: rail.decimals });
+      const c = checkCap({ cap: state.cap.cap, spent: state.cap.spent, amount, decimals: rail.decimals, unit: capUnit() });
       if (!c.ok) throw new Error(`Refused: ${c.reason} Raise the cap only if you mean to.`);
     }
+    if (!isAddress(rail.token) || !isAddress(row.wallet)) throw new Error('The token or worker address is missing, so nothing was sent.');
     const ok = window.confirm(
-      `Send ${usdc(amount)} on ${rail.label}\n`
+      `Send ${tokenAmount(amount, rail)} on ${rail.label}\n`
       + `to ${row.worker} (${row.wallet})\n`
-      + `for "${row.title.slice(0, 120)}"?\n\n`
-      + `From your wallet ${scan.payer}. Your wallet will ask you to confirm again.`,
+      + `for "${row.title.slice(0, 120)}"?\n`
+      + (row.payNote ? `This is ${row.payNote}.\n` : '')
+      + `\nFrom your wallet ${state.wallet.account}. Your wallet will ask you to confirm again.`,
     );
     if (!ok) return;
 
     const data = encodeTransfer(row.wallet, amount);
-    if (capApplies()) { state.cap.spent += amount; saveCap(); reserved = true; } // reserve before the wallet can broadcast
+    if (capApplies()) { reserved = toCapUnits(amount, rail.decimals); state.cap.spent += reserved; saveCap(); } // before the wallet can broadcast
     render();
-    const hash = await eth().request({ method: 'eth_sendTransaction', params: [{ from: scan.payer, to: rail.usdc, data, value: '0x0' }] });
-    pending = { hash: isTxHash(hash) ? hash : null, state: 'waiting' };
+    const hash = await eth().request({ method: 'eth_sendTransaction', params: [{ from: state.wallet.account, to: rail.token, data, value: '0x0' }] });
+    pending = { hash: isTxHash(hash) ? hash : null, state: 'waiting', rail: rail.name };
     state.pending.set(row.id, pending);
   } catch (e) {
-    if (reserved) { state.cap.spent -= amount; saveCap(); }
+    if (reserved) { state.cap.spent -= reserved; saveCap(); reserved = 0n; }
     state.payMsg = { kind: 'error', text: walletError(e) };
   } finally {
     if (!pending) { state.sending = false; render(); }
@@ -416,11 +445,11 @@ async function pay(row) {
     state.payMsg = { kind: 'warn', text: 'The payment hasn\'t confirmed yet. Follow the transaction link; this task stays locked so it can\'t be paid twice.' };
   } else if (receipt.status === '0x1') {
     pending.state = 'mined';
-    state.payMsg = { kind: 'ok', text: `Confirmed in block ${Number(BigInt(receipt.blockNumber)).toLocaleString()}.` };
+    state.payMsg = { kind: 'ok', text: `Confirmed on ${rail.label} in block ${Number(BigInt(receipt.blockNumber)).toLocaleString()}.` };
   } else {
     pending.state = 'reverted';
-    if (reserved) { state.cap.spent -= amount; saveCap(); }
-    state.payMsg = { kind: 'error', text: 'The transaction failed on chain (reverted), so no USDC moved. You can try again.' };
+    if (reserved) { state.cap.spent -= reserved; saveCap(); }
+    state.payMsg = { kind: 'error', text: 'The transaction failed on chain (reverted), so nothing moved. You can try again.' };
   }
   state.sending = false;
   render();
@@ -430,7 +459,7 @@ async function pay(row) {
 // ---------------------------------------------------------------- proof
 
 async function copyProof() {
-  const text = proofText({ side: state.side, rail: state.rail, project: state.project, payer: state.scan?.payer || state.wallet.account, rows: state.rows, scan: state.scan });
+  const text = proofText({ side: state.side, rails: state.rails, project: state.project, payer: state.wallet.account, rows: state.rows, check: state.check });
   state.proofFallback = null;
   try {
     await navigator.clipboard.writeText(text);
@@ -452,26 +481,24 @@ function render() {
 }
 
 function railSection() {
-  if (state.railError) return h('section', { class: 'card' }, h('h2', { text: 'Payment rail' }), msg('error', state.railError), h('button', { class: 'btn', type: 'button', onclick: () => loadSide(state.side) }, 'Try again'));
-  if (!state.rail) return h('section', { class: 'card' }, h('h2', { text: 'Payment rail' }), h('p', { class: 'muted' }, 'Loading the rail from handoff…'));
-  const r = state.rail;
+  const title = h('h2', { text: state.rails.length > 1 ? 'Payment rails' : 'Payment rail' });
+  if (state.railError) return h('section', { class: 'card' }, title, msg('error', state.railError), h('button', { class: 'btn', type: 'button', onclick: () => loadSide(state.side) }, 'Try again'));
+  if (!state.payRail) return h('section', { class: 'card' }, title, h('p', { class: 'muted' }, 'Loading the rails from handoff…'));
+  const list = h('ul', { class: 'rails' }, state.rails.map((r) => h('li', {},
+    h('div', {}, h('b', {}, r.label), ` · chain ${r.chainId} · ${r.symbol}${r.testnet ? ' · test money' : ''}`,
+      r.source === 'app' ? h('span', { class: 'tag' }, 'added by this app') : h('span', { class: 'tag muted-tag' }, 'from handoff')),
+    h('div', { class: 'small muted' }, h('span', { class: 'mono' }, r.token),
+      r.source === 'app' ? ' · handoff doesn\'t settle or watch this chain; the app reads it itself' : ''))));
   const picker = state.rails.length > 1
-    ? h('select', {
-      'aria-label': 'Network',
-      onchange: (e) => {
-        state.rail = state.rails.find((x) => x.name === e.target.value) || state.rail;
-        resetScan(); rebuildRows(); setHash(); render();
-        if (state.wallet.account) switchChain();
-      },
-    }, state.rails.map((x) => h('option', { value: x.name, selected: x.name === r.name }, `${x.label}${x.name === state.settlement.defaultNetwork ? ' (handoff default)' : ''}`)))
+    ? h('div', { class: 'row', style: 'margin-top:10px' },
+      h('label', { class: 'small muted', for: 'payrail' }, 'Pay with'),
+      h('select', { id: 'payrail', style: 'width:auto', onchange: (e) => selectPayRail(e.target.value) },
+        state.rails.map((x) => h('option', { value: x.name, selected: x.name === state.payRail.name }, `${x.symbol} on ${x.label}`))))
     : null;
-  return h('section', { class: 'card' },
-    h('h2', { text: 'Payment rail' }),
-    h('div', { class: 'row' },
-      h('div', { class: 'grow' },
-        h('div', {}, h('b', {}, r.label), ` · chain ${r.chainId}${r.testnet ? ' · test money' : ' · real money'}`),
-        h('div', { class: 'small muted' }, 'USDC ', h('span', { class: 'mono' }, r.usdc))),
-      picker));
+  const note = state.side === 'mainnet' && state.rails.length > 1
+    ? h('p', { class: 'small muted', style: 'margin:8px 0 0' }, 'Before any Pay button appears, your payments on every rail above are checked, so a task is never paid twice.')
+    : null;
+  return h('section', { class: 'card' }, title, list, picker, note);
 }
 
 function walletSection() {
@@ -479,13 +506,13 @@ function walletSection() {
   const parts = [h('h2', { text: 'Your wallet' })];
   if (!w.account) {
     parts.push(h('div', { class: 'row' },
-      h('p', { class: 'grow muted' }, 'Connect the wallet you pay from. The app reads your past USDC transfers to see what you already paid.'),
-      h('button', { class: 'btn primary', type: 'button', disabled: w.busy || !state.rail, onclick: connectWallet }, w.busy ? 'Connecting…' : 'Connect wallet')));
+      h('p', { class: 'grow muted' }, 'Connect the wallet you pay from. The app reads your past stablecoin transfers to see what you already paid.'),
+      h('button', { class: 'btn primary', type: 'button', disabled: w.busy || !state.payRail, onclick: connectWallet }, w.busy ? 'Connecting…' : 'Connect wallet')));
   } else {
-    const right = onRightChain();
+    const right = onPayChain();
     parts.push(h('div', { class: 'row' },
-      h('div', { class: 'grow' }, h('span', { class: 'mono' }, w.account), h('div', { class: 'small muted' }, right ? `on ${state.rail.label}` : `on chain ${w.chainId ?? '?'}, not ${state.rail?.label ?? 'the rail'}`)),
-      right ? null : h('button', { class: 'btn primary', type: 'button', onclick: switchChain }, `Switch to ${state.rail?.label ?? 'the rail'}`)));
+      h('div', { class: 'grow' }, h('span', { class: 'mono' }, w.account), h('div', { class: 'small muted' }, right ? `on ${state.payRail.label}` : `on chain ${w.chainId ?? '?'}; paying needs ${state.payRail?.label ?? 'the pay rail'}`)),
+      right ? null : h('button', { class: 'btn primary', type: 'button', onclick: switchChain }, `Switch to ${state.payRail?.label ?? 'the rail'}`)));
   }
   if (w.error) parts.push(msg('error', w.error));
   parts.push(capBlock());
@@ -493,27 +520,28 @@ function walletSection() {
 }
 
 function capBlock() {
-  if (!capApplies()) return h('p', { class: 'small muted', style: 'margin:10px 0 0' }, 'No spending cap on testnet (test USDC). Mainnet has a session cap.');
+  if (!capApplies()) return h('p', { class: 'small muted', style: 'margin:10px 0 0' }, 'No spending cap on testnet (test money). Mainnet has one session cap.');
   const { cap, spent } = state.cap;
   const left = cap > spent ? cap - spent : 0n;
-  const input = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'New cap in USDC', 'aria-label': 'New session cap in USDC', autocomplete: 'off' });
+  const unit = capUnit();
+  const input = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'New cap in dollars', 'aria-label': 'New session cap in dollars', autocomplete: 'off' });
   const setCap = () => {
     try {
-      const v = toAtomic(input.value, 6);
+      const v = toAtomic(input.value, CAP_DECIMALS);
       state.cap.cap = v;
       saveCap();
-      state.capMsg = { kind: 'ok', text: `Session cap set to ${formatAtomic(v, 6)} USDC.` };
+      state.capMsg = { kind: 'ok', text: `Session cap set to ${formatAtomic(v, CAP_DECIMALS)} ${unit}.` };
     } catch (e) {
-      state.capMsg = { kind: 'error', text: `Type a USDC amount like 0.50 (${e.message}).` };
+      state.capMsg = { kind: 'error', text: `Type an amount like 0.50 (${e.message}).` };
     }
     render();
   };
-  return h('div', { style: 'margin-top:12px' },
+  return h('div', { id: 'cap', style: 'margin-top:12px' },
     h('div', { class: 'stats' },
-      h('span', {}, 'Session cap ', h('b', {}, `${formatAtomic(cap, 6)} USDC`)),
-      h('span', {}, 'spent ', h('b', {}, formatAtomic(spent, 6))),
-      h('span', {}, 'left ', h('b', {}, formatAtomic(left, 6)))),
-    h('p', { class: 'small muted' }, 'Any payment that would go over the cap is refused. To change it, type a new number.'),
+      h('span', {}, 'Session cap ', h('b', {}, `${formatAtomic(cap, CAP_DECIMALS)} ${unit}`)),
+      h('span', {}, 'spent ', h('b', {}, formatAtomic(spent, CAP_DECIMALS))),
+      h('span', {}, 'left ', h('b', {}, formatAtomic(left, CAP_DECIMALS)))),
+    h('p', { class: 'small muted' }, `One total for every mainnet rail (${unit.replace('+', ' and ')} count dollar for dollar). Any payment that would go over it is refused. To change it, type a new number.`),
     h('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); setCap(); } },
       h('div', { class: 'grow' }, input),
       h('button', { class: 'btn', type: 'submit' }, 'Set cap')),
@@ -526,7 +554,7 @@ function projectSection() {
     h('h2', { text: 'Project' }),
     h('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); loadProject(state.projectInput); } },
       h('div', { class: 'grow' }, input),
-      h('button', { class: 'btn primary', type: 'submit', disabled: !!state.loading || !state.rail }, 'Load')),
+      h('button', { class: 'btn primary', type: 'submit', disabled: !!state.loading || !state.payRail }, 'Load')),
   ];
   if (state.projectsError) parts.push(msg('warn', state.projectsError));
   else if (state.projects == null) parts.push(h('p', { class: 'small muted', style: 'margin:8px 0 0' }, 'Loading the project list…'));
@@ -554,7 +582,7 @@ const LABEL = {
 };
 
 function statusFor(row) {
-  const s = rowStatus(row, state.scan);
+  const s = rowStatus(row, state.check);
   const p = state.pending.get(row.id);
   if (p && s.kind !== 'wallet' && p.state !== 'reverted') return { kind: 'pending', pending: p };
   return s;
@@ -567,7 +595,7 @@ function resultsSection() {
   const statuses = rows.map((r) => [r, statusFor(r)]);
   const count = (k) => statuses.filter(([, s]) => s.kind === k).length;
   const out = [];
-  const head = h('section', { class: 'card' },
+  out.push(h('section', { class: 'card' },
     h('h2', { text: 'Verified tasks' }),
     h('p', {}, h('b', {}, state.project.title || '(untitled project)'), h('span', { class: 'muted' }, ` · requester ${state.project.requester ?? 'unknown'}`)),
     h('div', { class: 'stats' },
@@ -590,8 +618,7 @@ function resultsSection() {
       h('span', { class: 'grow' }),
       h('button', { class: 'btn', type: 'button', disabled: !(count('wallet') + count('handoff')), onclick: copyProof }, 'Copy proof')),
     state.proofMsg ? msg(state.proofFallback ? 'warn' : 'ok', state.proofMsg) : null,
-    state.proofFallback ? h('textarea', { class: 'proof', readonly: true, 'aria-label': 'Payment proof' }, state.proofFallback) : null);
-  out.push(head);
+    state.proofFallback ? h('textarea', { class: 'proof', readonly: true, 'aria-label': 'Payment proof' }, state.proofFallback) : null));
 
   if (!rows.length) {
     out.push(h('div', { class: 'empty' }, state.tasks.length
@@ -610,36 +637,42 @@ function resultsSection() {
 }
 
 function scanBlock(statuses) {
-  const payable = state.rows.filter((r) => r.payable);
-  if (!payable.length) return h('p', { class: 'small muted', style: 'margin-top:8px' }, 'None of these tasks can be paid from your wallet here, so there is nothing to check on chain.');
+  if (!candidates().length) return h('p', { class: 'small muted', style: 'margin-top:8px' }, 'None of these tasks can be paid from your wallet here, so there is nothing to check on chain.');
+  const rails = checkRails();
   const parts = [];
   if (!state.wallet.account) parts.push(h('p', { class: 'small muted' }, 'Connect your wallet to see which of these you already paid. Until then, "unpaid" means handoff hasn\'t paid it, not that you haven\'t.'));
-  else if (!onRightChain()) parts.push(h('p', { class: 'small muted' }, `Switch your wallet to ${state.rail.label} to check and pay.`));
-  const scan = state.scan;
+  const lines = rails.map((rail) => {
+    const s = state.scans.get(rail.name);
+    if (!s) return null;
+    const mine = s.transfers.length;
+    return h('li', {}, h('b', {}, rail.label), `: blocks ${s.low.toLocaleString()}–${s.high.toLocaleString()}`,
+      s.coveredFromMs != null ? ` (back to ${when(s.coveredFromMs)})` : '',
+      `, ${s.calls} quer${s.calls === 1 ? 'y' : 'ies'}, ${mine} ${rail.symbol} transfer${mine === 1 ? '' : 's'} to these workers`);
+  }).filter(Boolean);
+  if (lines.length) parts.push(h('p', { class: 'small', style: 'margin-bottom:4px' }, rails.length > 1 ? 'Checked your payments on every rail:' : 'Checked your payments:'), h('ul', { class: 'small checked' }, lines));
   const unchecked = statuses.filter(([, s]) => s.kind === 'unchecked').length;
-  if (scan) {
+  if (state.check) {
     parts.push(h('p', { class: 'small' },
-      `Checked your USDC transfers in blocks ${scan.low.toLocaleString()}–${scan.high.toLocaleString()}`,
-      scan.coveredFromMs != null ? ` (back to ${when(scan.coveredFromMs)})` : '',
-      `: ${scan.transfers.length} transfer${scan.transfers.length === 1 ? '' : 's'} to these workers, ${scan.match.size} matched to tasks.`,
-      scan.handoffOwned ? ` ${scan.handoffOwned} of them ${scan.handoffOwned === 1 ? 'was' : 'were'} handoff's own payout${scan.handoffOwned === 1 ? '' : 's'} and ${scan.handoffOwned === 1 ? "doesn't" : "don't"} count.` : '',
-      unchecked ? ` ${unchecked} task${unchecked === 1 ? ' was' : 's were'} verified earlier and ${unchecked === 1 ? "isn't" : "aren't"} checked yet, so ${unchecked === 1 ? 'it' : 'they'} can't be paid until you check further back.` : ''));
+      `${state.check.match.size} task${state.check.match.size === 1 ? '' : 's'} matched to your transfers.`,
+      state.check.handoffOwned ? ` ${state.check.handoffOwned} transfer${state.check.handoffOwned === 1 ? ' was' : 's were'} handoff's own payout${state.check.handoffOwned === 1 ? '' : 's'} and ${state.check.handoffOwned === 1 ? "doesn't" : "don't"} count.` : '',
+      unchecked ? ` ${unchecked} task${unchecked === 1 ? ' is' : 's are'} not checked on every rail back to ${unchecked === 1 ? 'its' : 'their'} verification yet, so ${unchecked === 1 ? 'it' : 'they'} can't be paid until you check further back.` : ''));
   }
-  const label = !scan ? 'Check my payments' : unchecked ? 'Check further back' : 'Check again';
+  const label = !state.check ? 'Check my payments' : unchecked ? 'Check further back' : 'Check again';
   parts.push(h('div', { class: 'row' },
     h('button', { class: 'btn', type: 'button', disabled: state.scanBusy || !canScan(), onclick: () => checkPayments({ back: true }) }, state.scanBusy ? 'Checking…' : label),
     h('span', { id: 'scan-progress', class: 'small muted' })));
-  if (state.scanError) parts.push(msg('error', state.scanError));
+  for (const [name, text] of state.scanErrors) parts.push(msg('error', railByName(name) ? text : `${name}: ${text}`));
   return h('div', { style: 'margin-top:8px' }, parts);
 }
 
 function taskCard(row, s) {
-  const rail = state.rail;
+  const payRail = state.payRail;
   const facts = h('dl', { class: 'facts' },
     h('dt', {}, 'Worker'),
-    h('dd', {}, row.worker ?? 'none assigned', row.wallet ? h('span', { class: 'mono muted', title: row.wallet }, ` · ${row.wallet}`) : null),
+    h('dd', {}, row.worker ?? 'none assigned', row.wallet ? h('span', { class: 'mono muted', title: row.wallet }, ` · ${row.wallet}`) : null,
+      row.custodial ? h('span', { class: 'muted' }, ' · custodial') : null),
     h('dt', {}, 'Amount'),
-    h('dd', {}, row.amountAtomic != null ? usdc(row.amountAtomic) : 'unreadable'),
+    h('dd', {}, row.amountText != null ? `${row.amountText} ${row.priceCurrency}` : 'unreadable', row.onlyRail ? h('span', { class: 'muted' }, ` · on ${railByName(row.onlyRail)?.label ?? row.onlyRail} only`) : null),
     h('dt', {}, 'Verified'),
     h('dd', {}, `by ${row.verifier ?? 'unknown'}${row.viaRequester ? ' (requester)' : ''} · ${when(row.verifiedAt)}`),
     h('dt', {}, 'Task'),
@@ -647,34 +680,40 @@ function taskCard(row, s) {
 
   const actions = [];
   if (s.kind === 'wallet') {
-    actions.push(link(explorerTxUrl(rail.explorer, s.tx), 'View your payment ↗'), h('span', { class: 'small muted' }, `${usdc(s.transfer.amount)} on ${when(s.transfer.timestamp * 1000)}`));
+    const rail = railByName(s.transfer.rail);
+    actions.push(link(rail ? explorerTxUrl(rail.explorer, s.tx) : null, `View your payment on ${rail?.label ?? s.transfer.rail} ↗`),
+      h('span', { class: 'small muted' }, `${tokenAmount(s.transfer.amount, rail)} on ${when(s.transfer.timestamp * 1000)}`));
   } else if (s.kind === 'handoff') {
     actions.push(s.url ? link(s.url, 'View handoff\'s payout ↗') : h('span', { class: 'small muted' }, `handoff marks it paid${row.handoffPaid.receiptId ? ` (receipt ${row.handoffPaid.receiptId})` : ''}; the tx isn't in its public feed.`));
   } else if (s.kind === 'pending') {
-    const url = explorerTxUrl(rail.explorer, s.pending.hash);
-    actions.push(h('span', { class: 'small' }, s.pending.state === 'mined' ? 'Confirmed on chain.' : s.pending.state === 'timeout' ? 'Not confirmed yet.' : 'Waiting for confirmation…'), link(url, 'View transaction ↗'));
+    const rail = railByName(s.pending.rail);
+    actions.push(h('span', { class: 'small' }, s.pending.state === 'mined' ? `Confirmed on ${rail?.label ?? 'chain'}.` : s.pending.state === 'timeout' ? 'Not confirmed yet.' : 'Waiting for confirmation…'),
+      link(rail ? explorerTxUrl(rail.explorer, s.pending.hash) : null, 'View transaction ↗'));
   } else if (s.kind === 'unpaid') {
     if (s.checked && row.payable) {
       let reason = null;
       if (state.sending) reason = 'Another payment is in progress.';
-      else if (!onRightChain()) reason = `Switch your wallet to ${rail.label}.`;
-      else if (capApplies() && !checkCap({ cap: state.cap.cap, spent: state.cap.spent, amount: row.amountAtomic }).ok) reason = 'This would go over your session cap.';
-      actions.push(h('button', { class: 'btn primary', type: 'button', disabled: !!reason, onclick: () => pay(row) }, `Pay ${usdc(row.amountAtomic)}`));
+      else if (!onPayChain()) reason = `Switch your wallet to ${payRail.label}.`;
+      else if (capApplies() && !checkCap({ cap: state.cap.cap, spent: state.cap.spent, amount: row.amountAtomic, decimals: payRail.decimals }).ok) reason = 'This would go over your session cap.';
+      actions.push(h('button', { class: 'btn primary pay', type: 'button', disabled: !!reason, onclick: () => pay(row) },
+        `Pay ${tokenAmount(row.amountAtomic, payRail)}`,
+        row.payNote ? h('span', { class: 'btn-note' }, row.payNote) : null));
       if (reason) actions.push(h('span', { class: 'small muted' }, reason));
     } else {
       actions.push(h('span', { class: 'small muted' }, state.wallet.account ? 'Check your payments to pay this.' : 'Connect a wallet to check and pay.'));
     }
   } else if (s.kind === 'unchecked') {
-    actions.push(h('span', { class: 'small muted' }, 'Verified before the checked range. Use "Check further back" first.'));
+    actions.push(h('span', { class: 'small muted' }, 'Verified before the checked range on at least one rail. Use "Check further back" first.'));
   } else if (s.kind === 'none') {
     actions.push(h('span', { class: 'small muted' }, 'The task\'s amount is 0.'));
   }
   const failedBefore = state.pending.get(row.id)?.state === 'reverted';
+  const flags = s.kind === 'handoff' || s.kind === 'wallet' ? [] : [...row.blocks, ...row.railBlocks.map((b) => `On ${payRail.label}: ${b}`)];
 
   return h('li', { class: `task${s.kind === 'blocked' ? ' is-blocked' : ''}` },
     h('div', { class: 'task-head' }, h('h3', {}, row.title), h('span', { class: `pill ${s.kind}` }, LABEL[s.kind])),
     facts,
-    row.blocks.length && s.kind !== 'handoff' ? h('ul', { class: 'flags' }, row.blocks.map((b) => h('li', {}, b))) : null,
+    flags.length ? h('ul', { class: 'flags' }, flags.map((b) => h('li', {}, b))) : null,
     failedBefore ? msg('warn', 'Your last payment for this task reverted.') : null,
     actions.length ? h('div', { class: 'actions' }, actions) : null);
 }
@@ -694,7 +733,7 @@ document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('clic
   const side = SIDES[p.get('side')] ? p.get('side') : 'testnet';
   await loadSide(side);
   const net = p.get('network');
-  if (net && state.rails.some((r) => r.name === net)) { state.rail = state.rails.find((r) => r.name === net); render(); }
+  if (net && railByName(net)) { state.payRail = railByName(net); render(); }
   if (eth()) {
     // Show an already-connected wallet without prompting.
     try {
