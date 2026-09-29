@@ -150,6 +150,9 @@ if (args.includes('--robinhood')) {
     const toTs = await blockTimestamp(rpc, want.block);
     console.log(`  adaptive scan, from-filtered: ${logCalls} eth_getLogs calls (${r.shrinks} shrink${r.shrinks === 1 ? '' : 's'}), ${(want.block - r.low + 1).toLocaleString()} blocks = ${((toTs - fromTs) / 86400).toFixed(1)} days (${new Date(fromTs * 1000).toISOString().slice(0, 16)} to ${new Date(toTs * 1000).toISOString().slice(0, 16)}), complete ${r.complete}, ${r.transfers.length} transfers, ${Date.now() - t0} ms`);
     const hit = r.transfers.find((x) => x.txHash === want.tx && x.logIndex === want.logIndex);
+    const realTs = await blockTimestamp(rpc, want.block);
+    console.log(`  raw log blockTimestamp ${target.blockTimestamp}; the app's transfer time ${hit?.timestamp} vs the block's ${realTs}: ${hit?.timestamp === realTs ? 'match' : 'MISMATCH'}`);
+    if (hit?.timestamp !== realTs) fail('transfer time');
     const ok = hit && hit.from === want.from && hit.to === want.to && hit.amount === want.amount && hit.rail === 'robinhood';
     console.log(`  found it: ${!!hit}; decoded from/to/amount match the raw log: ${!!ok}`);
     if (!ok) fail('decoded transfer does not match');
@@ -168,7 +171,7 @@ if (args.includes('--robinhood')) {
     const [busyTopic] = ranked[ranked.length - 1];
     const busy = `0x${busyTopic.slice(26)}`;
     const b0 = counts.logs;
-    const rb = await scanTransfers({ rpc, rail: rh, from: busy, fromBlock: latest - 200_000 + 1, toBlock: latest });
+    const rb = await scanTransfers({ rpc, rail: rh, from: busy, fromBlock: latest - 200_000 + 1, toBlock: latest, resolveTimestamps: false });
     console.log(`  busy sender ${busy} over 200,000 blocks: ${counts.logs - b0} eth_getLogs calls, ${rb.shrinks} shrink${rb.shrinks === 1 ? '' : 's'}, ${rb.transfers.length} transfers, complete ${rb.complete}`);
     if (!rb.complete) fail('busy scan incomplete');
   }
