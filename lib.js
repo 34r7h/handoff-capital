@@ -227,6 +227,16 @@ export function receiptIndex(activity) {
   return map;
 }
 
+// Every tx hash handoff reports as its own settled payout. Those transfers
+// paid something handoff settled, so they never count as the requester's.
+export function receiptTxSet(activity) {
+  const set = new Set();
+  for (const r of activity?.receipts || []) {
+    if (r && r.status === 'settled' && isTxHash(r.tx)) set.add(r.tx.toLowerCase());
+  }
+  return set;
+}
+
 // Everything the app shows for one project, as plain rows.
 // agents: Map(agentId -> { ok: true, agent } | { ok: false, notFound?: true, error?: string })
 // receipts: output of receiptIndex(); rails: every rail on this side (for receipt links).
@@ -427,4 +437,10 @@ export function proofText({ side, rail, project, payer, rows, scan, generatedAt 
   }
   if (!mine.length && !handoff.length) lines.push('No paid tasks yet.');
   return lines.join('\n').trimEnd() + '\n';
+}
+
+// A project id from a pasted id or a link that contains one.
+export function extractProjectId(input) {
+  const m = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(String(input || ''));
+  return m ? m[0].toLowerCase() : null;
 }

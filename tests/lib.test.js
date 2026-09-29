@@ -21,6 +21,8 @@ import {
   buildRows,
   rowStatus,
   proofText,
+  extractProjectId,
+  receiptTxSet,
 } from '../lib.js';
 
 const WORKER = '0x1fa853271f619F98A4777A5BFac8b01E256b572d';
@@ -194,6 +196,14 @@ describe('spending cap', () => {
   });
 });
 
+describe('project ids', () => {
+  test('from a bare id or a pasted link', () => {
+    assert.equal(extractProjectId(' 62E63CE5-23ad-40c2-b4a1-981d5c83ffec '), '62e63ce5-23ad-40c2-b4a1-981d5c83ffec');
+    assert.equal(extractProjectId('https://handoff.lol/projects/2af16779-4c0f-4c93-94b7-6a0281fc6846?tab=tasks'), '2af16779-4c0f-4c93-94b7-6a0281fc6846');
+    assert.equal(extractProjectId('not an id'), null);
+  });
+});
+
 describe('scan helpers', () => {
   test('chunks cover the range exactly', () => {
     assert.deepEqual(chunkRanges(1, 2500, 1000), [[1, 1000], [1001, 2000], [2001, 2500]]);
@@ -316,6 +326,13 @@ describe('task rows', () => {
     assert.equal(by['22222222-2222-2222-2222-222222222222'].handoffPaid, null);
     assert.equal(by.flagged.handoffPaid.receiptId, 'r9');
     assert.equal(rowStatus(by.flagged, null).kind, 'handoff');
+  });
+
+  test("handoff's own payouts are recognised by tx hash", () => {
+    const tx = '0x' + 'AB'.repeat(32);
+    const set = receiptTxSet({ receipts: [{ status: 'settled', tx, resource: 'settle:x' }, { status: 'failed', tx: '0x' + '01'.repeat(32) }] });
+    assert.equal(set.has(tx.toLowerCase()), true);
+    assert.equal(set.size, 1);
   });
 
   test('tasks verified before the scanned range are unchecked, never unpaid', () => {
