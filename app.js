@@ -358,62 +358,58 @@ function progress() {
 // ---------------------------------------------------------------- paying
 
 async function pay(row) {
-  state.payMsg = null;
-  const rail = state.rail;
-  const scan = state.scan;
-  const status = rowStatus(row, scan);
   if (state.sending) return;
-  if (!(row.payable && status.kind === 'unpaid' && status.checked) || state.pending.has(row.id)) {
-    state.payMsg = { kind: 'error', text: 'This task isn\'t confirmed unpaid yet. Check payments first.' };
-    render();
-    return;
-  }
+  state.sending = true; // lock every Pay button before the first await
+  state.payMsg = null;
+  render();
+  const rail = state.rail;
+  const amount = row.amountAtomic;
+  let reserved = false;
+  let pending = null;
   try {
     const accounts = await eth().request({ method: 'eth_accounts' });
-    if (!sameAddress(accounts?.[0], scan.payer)) throw new Error('Your wallet account changed since the last check. Check payments again before paying.');
+    if (!state.scan || !sameAddress(accounts?.[0], state.scan.payer)) throw new Error('Your wallet account changed since the last check. Check payments again before paying.');
     const chain = Number.parseInt(await eth().request({ method: 'eth_chainId' }), 16);
     if (chain !== rail.chainId) throw new Error(`Your wallet is on chain ${chain}. Switch it to ${rail.label} first.`);
-  } catch (e) {
-    state.payMsg = { kind: 'error', text: walletError(e) };
-    render();
-    return;
-  }
-  const amount = row.amountAtomic;
-  if (capApplies()) {
-    const c = checkCap({ cap: state.cap.cap, spent: state.cap.spent, amount, decimals: rail.decimals });
-    if (!c.ok) {
-      state.payMsg = { kind: 'error', text: `Refused: ${c.reason} Raise the cap only if you mean to.` };
-      render();
-      return;
-    }
-  }
-  const ok = window.confirm(
-    `Send ${usdc(amount)} on ${rail.label}\n`
-    + `to ${row.worker} (${row.wallet})\n`
-    + `for "${row.title.slice(0, 120)}"?\n\n`
-    + `From your wallet ${scan.payer}. Your wallet will ask you to confirm again.`,
-  );
-  if (!ok) return;
 
-  const data = encodeTransfer(row.wallet, amount);
-  state.sending = true;
-  if (capApplies()) { state.cap.spent += amount; saveCap(); } // reserve before the wallet can broadcast
-  render();
-  let hash;
-  try {
-    hash = await eth().request({ method: 'eth_sendTransaction', params: [{ from: scan.payer, to: rail.usdc, data, value: '0x0' }] });
-  } catch (e) {
-    if (capApplies()) { state.cap.spent -= amount; saveCap(); }
-    state.sending = false;
-    state.payMsg = { kind: 'error', text: walletError(e) };
+    // Re-read the chain right before paying, in case this task was paid elsewhere since the last check.
+    if (state.scanBusy) throw new Error('A payment check is running. Wait for it to finish, then pay.');
+    await checkPayments({ back: false });
+    if (state.scanError) throw new Error('Couldn\'t re-read the chain just now, so nothing was sent. Try again in a moment.');
+    const scan = state.scan;
+    const status = rowStatus(row, scan);
+    if (!state.rows.includes(row) || state.rail !== rail || !scan
+      || !(row.payable && status.kind === 'unpaid' && status.checked) || state.pending.has(row.id)) {
+      throw new Error('This task isn\'t confirmed unpaid on chain, so nothing was sent.');
+    }
+    if (capApplies()) {
+      const c = checkCap({ cap: state.cap.cap, spent: state.cap.spent, amount, decimals: rail.decimals });
+      if (!c.ok) throw new Error(`Refused: ${c.reason} Raise the cap only if you mean to.`);
+    }
+    const ok = window.confirm(
+      `Send ${usdc(amount)} on ${rail.label}\n`
+      + `to ${row.worker} (${row.wallet})\n`
+      + `for "${row.title.slice(0, 120)}"?\n\n`
+      + `From your wallet ${scan.payer}. Your wallet will ask you to confirm again.`,
+    );
+    if (!ok) return;
+
+    const data = encodeTransfer(row.wallet, amount);
+    if (capApplies()) { state.cap.spent += amount; saveCap(); reserved = true; } // reserve before the wallet can broadcast
     render();
-    return;
+    const hash = await eth().request({ method: 'eth_sendTransaction', params: [{ from: scan.payer, to: rail.usdc, data, value: '0x0' }] });
+    pending = { hash: isTxHash(hash) ? hash : null, state: 'waiting' };
+    state.pending.set(row.id, pending);
+  } catch (e) {
+    if (reserved) { state.cap.spent -= amount; saveCap(); }
+    state.payMsg = { kind: 'error', text: walletError(e) };
+  } finally {
+    if (!pending) { state.sending = false; render(); }
   }
-  const pending = { hash: isTxHash(hash) ? hash : null, state: 'waiting' };
-  state.pending.set(row.id, pending);
+  if (!pending) return;
+
   state.payMsg = { kind: 'info', text: `Sent. Waiting for ${rail.label} to include it…` };
   render();
-
   const receipt = pending.hash ? await waitForReceipt([makeRpc(rail.rpcUrl), walletRpc(eth())], pending.hash) : null;
   if (!receipt) {
     pending.state = 'timeout';
@@ -423,7 +419,7 @@ async function pay(row) {
     state.payMsg = { kind: 'ok', text: `Confirmed in block ${Number(BigInt(receipt.blockNumber)).toLocaleString()}.` };
   } else {
     pending.state = 'reverted';
-    if (capApplies()) { state.cap.spent -= amount; saveCap(); }
+    if (reserved) { state.cap.spent -= amount; saveCap(); }
     state.payMsg = { kind: 'error', text: 'The transaction failed on chain (reverted), so no USDC moved. You can try again.' };
   }
   state.sending = false;
