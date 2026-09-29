@@ -17,7 +17,11 @@ Build further for **Base, Robinhood Chain and XMBL** directly.
 - **Base:** Base mainnet USDC is the real-money rail; Base Sepolia is for testing. Both come from handoff's settlement config.
 - **Robinhood Chain:** add Robinhood Chain mainnet (chain 4663) as a rail, paying in USDG (`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, 6 decimals), with "paid" proven from USDG Transfer logs. A task priced in USDC and paid in USDG is labelled as such. A task that names its network is payable only there.
 - **Across rails:** before a Pay button appears, the requester's payments on every mainnet rail are checked, so a task is never paid twice. The mainnet cap (0.50 by default) is one total across all rails.
-- **XMBL:** scope to be decided.
+- **XMBL:** sealed key release through the handoff broker, testnet only (built; live run waits on Mark's yes).
+
+### Disclosure
+
+- The seal route and @xmbl/identity predate the hackathon; only the integration is new.
 
 [handoff](https://handoff.lol) is a coordination server. Agents take tasks there, and another party verifies the work. handoff's mainnet broker holds no treasury key, so nothing pays verified mainnet tasks today. handoff pay adds that payment layer on top without changing handoff: you pay each verified task yourself, from a browser wallet, and the chain records it.
 
@@ -129,6 +133,63 @@ For a typical payer, two weeks of Robinhood history takes about 2 calls.
 
   The app never guesses a payee or a unit.
 
+These rules cover the Base and Robinhood Chain rails. The XMBL sealed release mode is the one exception, and it has its own trust model: see [XMBL sealed release (testnet)](#xmbl-sealed-release-testnet).
+
+## XMBL sealed release (testnet)
+
+A second way to pay one task, on the testnet side only, in Base Sepolia USDC. The mainnet side never shows it. The mode carries this label, word for word:
+
+> Key release sealed by the handoff broker with experimental, unaudited Cubic-LWE. Not an escrow: the broker minted the key. Testnet only.
+
+**The exception to "No keys".** In this mode a private key exists. The handoff broker mints a fresh EVM key for one payout and seals it to the worker's Cubic-LWE public key (`@xmbl/identity` 0.1.19, n = 729). The broker has seen that key, and the worker's scripts open it. The miniapp itself still never sees a key: it only sends two ordinary transactions from your wallet, each of which you approve.
+
+### Flow
+
+The scripts are in `xmbl/`, which has its own `package.json` pinned to `@xmbl/identity` 0.1.19. Every script is a dry run unless you pass `--live`.
+
+1. **Worker: make keys.** `node worker-keys.mjs` writes a fresh Cubic-LWE key pair and a fresh MAYO identity to `keys/worker-<time>/` (gitignored; secret files are mode 0600). It prints only the worker's `xmb…` address and the path of the public key file (about 2.5 MB of JSON). The worker gives both to the requester.
+2. **Requester: ask for a seal.** `node request-seal.mjs --as <agentId> --settlement <id> --payer <0x…> --receiver-xmb <xmb…> --pk <lwe-pk.json> --amount 0.05`
+   - This calls `POST https://handoff.lol/api/v1/xmbl/settlement/seal`, signed like any handoff agent request. The signature is Ed25519, made with the agent's local `sig_privkey` from `~/.handoff`, over `handoff-signed-req`, the agent id, the method, the path, the timestamp and the SHA-256 of the body. It is sent in the `X-Agent-Id`, `X-Signature` and `X-Timestamp` headers.
+   - The dry run prints the exact request with the signature redacted and the 2.5 MB key elided. `--live` sends it and saves the response to `out/`.
+   - The script refuses any `evm_private_key` argument or field, any mainnet API and any chain other than `base-sepolia`.
+   - The response names a one-time address (`fund_here`) and holds the sealed key.
+3. **Worker: claim and check, before anything is funded.** `node claim-and-check.mjs --settlement <id> --claim <claim_id> --seal-response <file> --keys <folder> [--live]`
+   - It MAYO-signs the `claim_id` and claims the seal (only with `--live`).
+   - It opens the seal with the worker's Cubic-LWE secret key. It derives the EVM address itself, from the uncompressed public key, and requires that address to equal `fund_here.address`.
+   - On a match it prints a check line: `xmbl-check OK settlement=… claim=… fund=0x… receiver=xmb…`. Otherwise it prints `FUNDING UNSAFE` and exits non-zero.
+   - The key is never printed, logged or saved; the script zeroes it after use.
+4. **Requester: fund, in the miniapp.** Pick the testnet side and open "XMBL sealed release (testnet)".
+   - Paste the seal response, then the worker's check line, then the worker's wallet.
+   - The app checks the response's fields and refuses one that carries any private-key field. It checks that the line names the same claim, address and receiver.
+   - It reads the one-time address, which must hold nothing and have sent nothing.
+   - **Step 1** sends exactly the USDC amount and waits for it to confirm. **Step 2** sends 0.00002 ETH for the sweep's gas and waits for that too. Each step re-reads the address first, and the app refuses to fund an address that has already sent a transaction.
+5. **Worker: sweep.** `node sweep.mjs --settlement <id> --seal-response <file> --keys <folder> --to <worker 0x…> [--live]`
+   - The dry run reads the address's balances and prints the gas budget, the unsigned EIP-1559 transaction and its signing hash.
+   - `--live` signs inside `@xmbl/identity`'s `releaseAndSign`, checks that the signature recovers to the funded address, and sends the transaction. It refuses if the address isn't funded or holds too little ETH for the gas budget.
+6. **Proof.** "Check both legs" reads USDC `Transfer` logs for leg 1 (requester to one-time address) and leg 2 (one-time address to worker). "Copy proof" copies both legs. No public endpoint proves the settlement, so the two legs are the proof.
+
+**Why a pasted check line and not a tick box.** A tick box only records that someone clicked. The line names the settlement, claim, address and receiver that the worker's script checked, and the app compares each one with the seal response. It isn't signed, so it is the worker's word, passed on by hand. It catches a copy mistake or the wrong seal; it does not catch a worker who lies.
+
+**Why the sweep pays its own gas.** The two options were: the requester sends a little ETH with the payout, or the worker signs an EIP-3009 authorization and a relayer submits it. This project uses the first.
+- There's no relayer to run or trust.
+- The sweep is one plain USDC `transfer`, signed by the released key.
+- The cost is a fixed 0.00002 ETH of test ETH. That covers the 65,000-gas fallback limit at up to about 0.3 gwei, far above Base Sepolia's usual fees.
+- The price is a little ETH left behind at an address that must never be used again.
+
+### Trust caveats
+
+- **Not an escrow.** The broker minted the key and saw it, so whoever runs the broker could move the funds. The only guarantee is that only the payee can *open* the envelope.
+- **A seal can be reopened forever** by whoever holds the worker's Cubic-LWE secret key. So use a fresh key per payout, fund exactly the amount plus gas, and never reuse or refill an address.
+- **Experimental cryptography.** The Cubic-LWE KEM is experimental, unaudited and only IND-CPA secure. This mode is testnet only:
+  - the miniapp shows it only on the testnet side, on Base Sepolia (chain 84532);
+  - the scripts refuse a mainnet API and any chain other than `base-sepolia`.
+- **The XMBL record isn't submitted anywhere.** The seal response's `submitted` is `false` on production, and the app shows it.
+- **Not observed live.** No live seal, claim or sweep has been run.
+  - The flow depends on the worker being able to claim **before** the address is funded, and that hasn't been observed. If the broker refuses the claim until the address is funded, the worker can't check the address first, and this mode must not be used.
+  - The wire format of `receiver_lwe_pk` is also assumed: JSON `{ A, b, n, q }` as numbers, about 2.5 MB, under the broker's 4 MB limit. So is `amount_usdc` as a decimal string.
+
+> **Warning: never call `sealChainKey`.** In `@xmbl/identity` 0.1.18 and 0.1.19, `sealChainKey('evm')` reports an address that no key controls, because it hashes the compressed public key. Funds sent there are lost. Nothing in this repo calls it. The scripts derive the address from the uncompressed key and compare it with `fund_here.address`, and a test simulates the bug to show the check catches it. The address that `releaseAndSign` returns has the same bug, though its signature is fine. `sweep.mjs` ignores that address and checks that the signature recovers to the funded one.
+
 ## Files
 
 | file | what it holds |
@@ -137,8 +198,9 @@ For a typical payer, two weeks of Robinhood history takes about 2 calls.
 | `app.js` | UI, wallet connection, payment flow |
 | `api.js` | read-only handoff API client, JSON-RPC client with backoff, per-rail Transfer-log scanner, receipt polling |
 | `lib.js` | pure functions: the rail registry, calldata encoding, decimal ↔ atomic units, log decoding, the adaptive range walker, task rows and flags, cross-rail task ↔ transfer matching, the cap check, proof text |
-| `tests/lib.test.js` | `node:test` unit tests for `lib.js` |
+| `tests/lib.test.js`, `tests/scan.test.js`, `tests/xmbl-mode.test.js` | `node:test` unit tests for `lib.js`, the scanner's timestamp handling and the XMBL mode's checks |
 | `scripts/smoke.mjs` | read-only smoke test against the live API |
+| `xmbl/` | XMBL sealed release scripts: `worker-keys.mjs`, `request-seal.mjs`, `claim-and-check.mjs`, `sweep.mjs`, shared `lib.mjs`, and tests in `xmbl/test/` |
 
 ## Tests
 
@@ -160,6 +222,18 @@ node scripts/smoke.mjs --project 2af16779-4c0f-4c93-94b7-6a0281fc6846 --chain-ch
   - It then scans a busy sender over 200,000 blocks, to exercise the result-count halving.
 
 Both only read; neither sends nor signs anything.
+
+The XMBL scripts have their own tests, which need the pinned package installed:
+
+```sh
+cd xmbl && npm ci && npm test
+```
+
+They run against a fake broker and a fake RPC, with a real local `sealKeyPair` → `sealSecret` → `openSecret` round trip. They check that:
+
+- the address check catches a mismatch, simulating the `sealChainKey` bug;
+- `evm_private_key` is refused;
+- the key never appears in the output.
 
 ## Notes on handoff's data
 
