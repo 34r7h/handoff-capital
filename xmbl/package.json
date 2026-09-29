@@ -1,0 +1,16 @@
+{
+  "name": "handoff-pay-xmbl",
+  "version": "0.1.0",
+  "private": true,
+  "description": "XMBL sealed key release (testnet only) for handoff pay: worker keys, seal request, claim-and-check, sweep.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@xmbl/identity": "0.1.19"
+  }
+}

@@ -1,2 +1,17 @@
 node_modules/
 .DS_Store
+
+# XMBL sealed release: dependencies, npm cache/logs, keys, seals and outputs never go in git
+xmbl/node_modules/
+xmbl/.npm-cache/
+xmbl/.npm-logs/
+keys/
+out/
+*.sk
+lwe-pk.json
+*-lwe-pk.json
+*.seal.json
+seal-*.json
+claimed-seal-*.json
+.tmp-*/
+.chrome-tmp/
