@@ -1,15 +1,11 @@
 // Network reads: handoff's public HTTP API (GET only) and chain JSON-RPC.
 // Works in the browser and in Node 18+ (global fetch). Never writes to handoff.
-import { TRANSFER_TOPIC, chunkRanges, decodeTransferLog, padTopicAddress, parseRangeLimit } from './lib.js';
+import { TRANSFER_TOPIC, decodeTransferLog, padTopicAddress, scanAdaptive, isRateLimitError } from './lib.js';
 
 export const SIDES = {
   testnet: { label: 'Testnet', api: 'https://handoff.lol/api/v1', site: 'https://handoff.lol' },
   mainnet: { label: 'Mainnet', api: 'https://mainnet.handoff.lol/api/v1', site: 'https://mainnet.handoff.lol' },
 };
-
-// Known eth_getLogs block-range caps of the public RPCs handoff lists.
-const KNOWN_LOG_RANGE = { 8453: 2000, 84532: 1000 };
-export const logChunkFor = (chainId) => KNOWN_LOG_RANGE[chainId] || 1000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const hex = (n) => `0x${Number(n).toString(16)}`;
@@ -96,12 +92,8 @@ export class RpcError extends Error {
   }
 }
 
-export const isRateLimit = (e) => e?.code === -32005 || e?.code === 429 || /rate limit|too many requests/i.test(e?.message || '');
-export const isRangeError = (e) => !isRateLimit(e)
-  && (e?.code === -32614 || /block range|limited to a|range is too|range too|exceed.{0,30}(range|blocks)|query returned more than|too many (blocks|results)/i.test(e?.message || ''));
-
 // fetch-based JSON-RPC client with backoff on rate limits and network blips.
-export function makeRpc(url, { timeoutMs = 20000, retries = 4 } = {}) {
+export function makeRpc(url, { timeoutMs = 30000, retries = 5 } = {}) {
   let id = 0;
   return async function rpc(method, params = []) {
     for (let attempt = 0; ; attempt++) {
@@ -125,7 +117,7 @@ export function makeRpc(url, { timeoutMs = 20000, retries = 4 } = {}) {
         if (!res.ok) throw new RpcError(`RPC answered HTTP ${res.status}`, 'http');
         return body.result;
       } catch (e) {
-        const retryable = isRateLimit(e) || e.code === 'network' || e.code === 'http';
+        const retryable = isRateLimitError(e) || e.code === 'network' || e.code === 'http';
         if (!retryable || attempt >= retries) throw e;
         await sleep(400 * 2 ** attempt + Math.random() * 250);
       }
@@ -166,54 +158,30 @@ export async function blockAtOrBefore(rpc, target, latest, cache) {
   return n;
 }
 
-// All USDC Transfer logs from `from` to any of `tos` in [fromBlock, toBlock].
-// Splits the range into chunks the public RPC accepts, shrinks them when the
-// RPC says the range is too big, and fails as a whole on any other error, so a
-// partial scan is never mistaken for a complete one.
-export async function scanTransfers({ rpc, token, from, tos, fromBlock, toBlock, chunk = 1000, concurrency = 3, onProgress, timestampCache }) {
-  if (toBlock < fromBlock || !tos.length) return [];
-  const topics = [TRANSFER_TOPIC, padTopicAddress(from), tos.map(padTopicAddress)];
-  let size = Math.max(1, chunk);
-  const queue = chunkRanges(fromBlock, toBlock, size, true);
-  const total = toBlock - fromBlock + 1;
-  let scanned = 0;
-  const found = [];
-  let failed = null;
-
-  async function worker() {
-    while (queue.length && !failed) {
-      let [a, b] = queue.shift();
-      if (b - a + 1 > size) { // the cap shrank since this range was queued
-        queue.unshift([a, b - size]);
-        a = b - size + 1;
-      }
-      try {
-        const logs = await rpc('eth_getLogs', [{ address: token, topics, fromBlock: hex(a), toBlock: hex(b) }]);
-        for (const log of logs || []) {
-          const d = decodeTransferLog(log);
-          if (d) found.push(d);
-        }
-        scanned += b - a + 1;
-        onProgress?.({ scanned, total });
-      } catch (e) {
-        if (isRangeError(e) && b > a) {
-          const limit = parseRangeLimit(e.message);
-          size = Math.max(1, Math.min(size, limit && limit < b - a + 1 ? limit : Math.ceil((b - a + 1) / 2)));
-          queue.unshift([a, b]);
-        } else {
-          failed = e;
-        }
-      }
+// Token Transfer logs from `from` (to any of `tos`, when given) in
+// [fromBlock, toBlock], walked newest first with the rail's scan strategy:
+// ranges shrink on range/result-limit errors and grow back after successes.
+// Returns { transfers, low, calls, complete }: everything in [low, toBlock]
+// was read; `complete` means low reached fromBlock. At most maxCalls queries.
+export async function scanTransfers({ rpc, rail, from, tos = [], fromBlock, toBlock, maxCalls = Infinity, onProgress, timestampCache }) {
+  if (toBlock < fromBlock) return { transfers: [], low: fromBlock, calls: 0, shrinks: 0, complete: true };
+  const topics = [TRANSFER_TOPIC, padTopicAddress(from)];
+  if (tos.length) topics.push(tos.map(padTopicAddress));
+  const fetchRange = async (lo, hi) => {
+    const logs = await rpc('eth_getLogs', [{ address: rail.token, topics, fromBlock: hex(lo), toBlock: hex(hi) }]);
+    const out = [];
+    for (const log of logs || []) {
+      const d = decodeTransferLog(log);
+      if (d) out.push({ ...d, rail: rail.name, decimals: rail.decimals });
     }
-  }
-  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker));
-  if (failed) throw failed;
-
-  for (const d of found) {
+    return out;
+  };
+  const r = await scanAdaptive({ fetchRange, fromBlock, toBlock, strategy: rail.scan, maxCalls, onProgress });
+  for (const d of r.items) {
     if (d.timestamp == null) d.timestamp = await blockTimestamp(rpc, d.blockNumber, timestampCache);
   }
-  found.sort((x, y) => x.blockNumber - y.blockNumber || x.logIndex - y.logIndex);
-  return found;
+  r.items.sort((x, y) => x.blockNumber - y.blockNumber || x.logIndex - y.logIndex);
+  return { transfers: r.items, low: r.low, calls: r.calls, shrinks: r.shrinks, complete: r.complete };
 }
 
 export async function waitForReceipt(rpcs, txHash, { intervalMs = 3000, timeoutMs = 10 * 60 * 1000, onTick } = {}) {
