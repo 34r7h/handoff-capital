@@ -7,7 +7,7 @@ import {
 import {
   railsForSide, pickRail, buildRows, receiptIndex, receiptTxSet, combineChecks, rowStatus, checkCap, toCapUnits,
   encodeTransfer, toAtomic, formatAtomic, explorerTxUrl, isAddress, isTxHash, sameAddress, proofText, extractProjectId,
-  CAP_DECIMALS,
+  CAP_DECIMALS, XMBL_LABEL, XMBL_CHAIN_ID, XMBL_GAS_WEI, parseSealResponse, parseCheckLine, fundingStep, encodeBalanceOf, xmblProofText,
 } from './lib.js';
 
 document.getElementById('boot')?.remove();
@@ -15,6 +15,9 @@ document.getElementById('boot')?.remove();
 const CAP_KEY = 'handoff-pay:mainnet-cap';
 const CAP_DEFAULT = 500000n; // 0.50 in 6-decimal dollar units, across every mainnet rail
 const ROUND_CALLS = 150; // eth_getLogs calls per rail per "check further back" round
+const LEG_WINDOW = 86_400; // blocks (~2 days on Base Sepolia) searched for the XMBL legs when the funding block isn't known
+
+const freshXmbl = () => ({ open: false, sealText: '', seal: null, checkText: '', check: null, worker: '', fund: null, fundError: null, busy: false, msg: null, sent: {}, fundBlock: null, legs: null, legsBusy: false, legsError: null, proofMsg: null });
 
 const state = {
   side: 'testnet',
@@ -48,6 +51,7 @@ const state = {
   filter: 'all',
   proofMsg: null,
   proofFallback: null,
+  xmbl: freshXmbl(), // XMBL sealed release (testnet only)
 };
 let activityCache = { side: null, at: 0, data: null };
 let listenersAttached = false;
@@ -105,6 +109,7 @@ async function loadSide(side) {
   state.side = side;
   state.settlement = null; state.rails = []; state.payRail = null; state.railError = null;
   state.projects = null; state.projectsError = null;
+  state.xmbl = freshXmbl();
   clearProject();
   render();
   try {
@@ -476,7 +481,7 @@ async function copyProof() {
 function render() {
   document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.side === state.side)));
   const root = document.getElementById('app');
-  root.replaceChildren(railSection(), walletSection(), projectSection(), ...resultsSection());
+  root.replaceChildren(...[railSection(), walletSection(), projectSection(), ...resultsSection(), xmblSection()].filter(Boolean));
   progress();
 }
 
@@ -716,6 +721,194 @@ function taskCard(row, s) {
     flags.length ? h('ul', { class: 'flags' }, flags.map((b) => h('li', {}, b))) : null,
     failedBefore ? msg('warn', 'Your last payment for this task reverted.') : null,
     actions.length ? h('div', { class: 'actions' }, actions) : null);
+}
+
+// ---------------------------------------------------------------- XMBL sealed release (testnet only)
+//
+// The one place this app involves a private key outside the requester's wallet: the handoff broker
+// mints a one-time EVM key and seals it to the worker's Cubic-LWE key. The page never sees that key.
+// It checks the broker's response, the worker's own address check, funds the one-time address with
+// exactly the amount plus gas (two confirmed transactions), then shows both Transfer legs.
+
+const xmblRail = () => (state.side === 'testnet' ? state.rails.find((r) => r.chainId === XMBL_CHAIN_ID) || null : null);
+const xmblReady = () => !!(state.xmbl.seal?.ok && state.xmbl.check?.ok && onPayChain() && state.payRail?.chainId === XMBL_CHAIN_ID);
+const fmtEth = (wei) => `${Number(wei) / 1e18} ETH`;
+
+async function xmblReadAddress() {
+  const x = state.xmbl;
+  const rail = xmblRail();
+  if (!x.seal?.ok || !rail) return;
+  x.fundError = null; x.busy = true; render();
+  try {
+    const rpc = makeRpc(rail.rpcUrl);
+    const a = x.seal.fund.address;
+    const [ethHex, nonceHex, balHex] = await Promise.all([
+      rpc('eth_getBalance', [a, 'latest']),
+      rpc('eth_getTransactionCount', [a, 'latest']),
+      rpc('eth_call', [{ to: rail.token, data: encodeBalanceOf(a) }, 'latest']),
+    ]);
+    const fund = { usdc: BigInt(balHex && balHex !== '0x' ? balHex : '0x0'), eth: BigInt(ethHex), nonce: Number(BigInt(nonceHex)), at: Date.now() };
+    fund.step = fundingStep({ ...fund, amountAtomic: x.seal.fund.amountAtomic });
+    x.fund = fund;
+  } catch (e) {
+    x.fundError = `Couldn't read the one-time address from ${new URL(rail.rpcUrl).host}: ${e.message}`;
+  }
+  x.busy = false; render();
+}
+
+async function xmblFund(kind) {
+  const x = state.xmbl;
+  if (state.sending) return;
+  state.sending = true; x.msg = null; render();
+  const rail = xmblRail();
+  try {
+    if (!rail || !xmblReady()) throw new Error('Check the seal response and the worker\'s line, and connect your wallet on Base Sepolia first.');
+    const accounts = await eth().request({ method: 'eth_accounts' });
+    if (!sameAddress(accounts?.[0], state.wallet.account)) throw new Error('Your wallet account changed. Reconnect it first.');
+    const chain = Number.parseInt(await eth().request({ method: 'eth_chainId' }), 16);
+    if (chain !== rail.chainId) throw new Error(`Your wallet is on chain ${chain}. Switch it to ${rail.label} first.`);
+    await xmblReadAddress(); // read the address again right before sending
+    const want = kind === 'usdc' ? 'fund-usdc' : 'fund-gas';
+    if (x.fund?.step.step !== want) throw new Error(x.fund?.step.reason || `The one-time address isn't at this step (it's at "${x.fund?.step.step ?? 'unknown'}").`);
+    const to = x.seal.fund.address;
+    const what = kind === 'usdc' ? `${x.seal.fund.amountText} USDC` : `${fmtEth(XMBL_GAS_WEI)} for the sweep's gas`;
+    const ok = window.confirm(`Send ${what} on ${rail.label}\nto the one-time address ${to}?\n\n${XMBL_LABEL}\n\nThe worker's check line named this address. From your wallet ${state.wallet.account}.`);
+    if (!ok) return;
+    const tx = kind === 'usdc'
+      ? { from: state.wallet.account, to: rail.token, data: encodeTransfer(to, x.seal.fund.amountAtomic), value: '0x0' }
+      : { from: state.wallet.account, to, value: `0x${XMBL_GAS_WEI.toString(16)}` };
+    if (!isAddress(tx.to)) throw new Error('The destination address is missing, so nothing was sent.');
+    const hash = await eth().request({ method: 'eth_sendTransaction', params: [tx] });
+    x.sent[kind] = hash;
+    x.msg = { kind: 'info', text: `Sent. Waiting for ${rail.label} to confirm it before the next step…` };
+    render();
+    const receipt = isTxHash(hash) ? await waitForReceipt([makeRpc(rail.rpcUrl), walletRpc(eth())], hash) : null;
+    if (!receipt) x.msg = { kind: 'warn', text: 'Not confirmed yet. Don\'t send the next step until it confirms; follow the link.' };
+    else if (receipt.status === '0x1') {
+      x.msg = { kind: 'ok', text: `${kind === 'usdc' ? 'USDC' : 'Gas'} confirmed in block ${Number(BigInt(receipt.blockNumber)).toLocaleString()}.` };
+      if (kind === 'usdc') x.fundBlock = Number(BigInt(receipt.blockNumber));
+    } else x.msg = { kind: 'error', text: 'The transaction reverted, so nothing moved.' };
+  } catch (e) {
+    x.msg = { kind: 'error', text: walletError(e) };
+  } finally {
+    state.sending = false;
+  }
+  await xmblReadAddress();
+}
+
+async function xmblLegs() {
+  const x = state.xmbl;
+  const rail = xmblRail();
+  x.legsBusy = true; x.legsError = null; x.proofMsg = null; render();
+  try {
+    if (!state.wallet.account) throw new Error('Connect the wallet that funded the one-time address.');
+    const rpc = makeRpc(rail.rpcUrl);
+    const latest = await latestBlock(rpc);
+    const from = x.fundBlock ?? Math.max(0, latest - LEG_WINDOW);
+    const one = await scanTransfers({ rpc, rail, from: state.wallet.account, tos: [x.seal.fund.address], fromBlock: from, toBlock: latest });
+    const leg1 = one.transfers[0] || null;
+    const worker = isAddress(x.worker) ? x.worker : null;
+    const two = await scanTransfers({ rpc, rail, from: x.seal.fund.address, tos: worker ? [worker] : [], fromBlock: leg1 ? leg1.blockNumber : from, toBlock: latest });
+    x.legs = { leg1, leg2: two.transfers[0] || null, fromBlock: from, toBlock: latest, calls: one.calls + two.calls };
+  } catch (e) {
+    x.legsError = `Couldn't read the legs from ${new URL(rail.rpcUrl).host}: ${e.message}`;
+  }
+  x.legsBusy = false; render();
+}
+
+async function xmblCopyProof() {
+  const x = state.xmbl;
+  const text = xmblProofText({ seal: x.seal, requester: state.wallet.account, worker: x.worker, leg1: x.legs?.leg1, leg2: x.legs?.leg2, explorer: xmblRail().explorer });
+  try { await navigator.clipboard.writeText(text); x.proofMsg = 'Proof copied.'; } catch { x.proofMsg = text; }
+  render();
+}
+
+function xmblSection() {
+  if (state.side !== 'testnet') return null; // never on mainnet
+  const x = state.xmbl;
+  const head = h('div', { class: 'row' },
+    h('h2', { class: 'grow', style: 'margin:0' }, 'XMBL sealed release (testnet)'),
+    h('button', { class: 'btn', type: 'button', id: 'xmbl-toggle', onclick: () => { x.open = !x.open; render(); } }, x.open ? 'Hide' : 'Show'));
+  if (!x.open) {
+    return h('section', { class: 'card', id: 'xmbl' }, head,
+      h('p', { class: 'small muted', style: 'margin:6px 0 0' }, 'Pay one task through a one-time key the handoff broker seals to the worker. Experimental; testnet only.'));
+  }
+  const rail = xmblRail();
+  const parts = [head, msg('warn', h('span', { id: 'xmbl-label' }, XMBL_LABEL))];
+  if (!rail) return h('section', { class: 'card', id: 'xmbl' }, ...parts, msg('error', 'Base Sepolia isn\'t in handoff\'s settlement config, so this mode is unavailable.'));
+  parts.push(h('p', { class: 'small' }, 'Unlike the rest of this app, this mode involves a private key outside your wallet: the broker minted a one-time key and saw it. Only the worker can open the sealed envelope. Fund a fresh address once, with exactly the amount plus a little gas, and never reuse it.'));
+
+  // 1. the broker's response
+  const sealBox = h('textarea', { class: 'proof', id: 'xmbl-seal', 'aria-label': 'Seal response JSON', placeholder: '{ "claim_id": …, "fund_here": { … }, "seal": { … } }', oninput: (e) => { x.sealText = e.target.value; } }, x.sealText);
+  parts.push(h('h3', { class: 'step' }, '1. The broker\'s seal response'),
+    h('p', { class: 'small muted' }, 'Paste the JSON that request-seal --live saved (the requester signs that request as a handoff agent).'),
+    sealBox,
+    h('div', { class: 'row', style: 'margin-top:6px' }, h('button', { class: 'btn', type: 'button', id: 'xmbl-check-seal', onclick: () => { x.seal = parseSealResponse(x.sealText); x.check = x.checkText ? parseCheckLine(x.checkText, x.seal) : null; x.fund = null; render(); } }, 'Check response')));
+  if (x.seal) {
+    if (!x.seal.ok) parts.push(msg('error', h('ul', { class: 'plain' }, x.seal.errors.map((e) => h('li', {}, e)))));
+    else {
+      parts.push(h('dl', { class: 'facts', id: 'xmbl-fields' },
+        h('dt', {}, 'Claim'), h('dd', {}, h('span', { class: 'mono' }, x.seal.claimId)),
+        h('dt', {}, 'One-time address'), h('dd', {}, h('span', { class: 'mono' }, x.seal.fund.address)),
+        h('dt', {}, 'Amount'), h('dd', {}, `${x.seal.fund.amountText} USDC on Base Sepolia, plus ${fmtEth(XMBL_GAS_WEI)} for gas`),
+        h('dt', {}, 'Sealed to'), h('dd', {}, h('span', { class: 'mono' }, x.seal.receiver)),
+        h('dt', {}, 'XMBL record'), h('dd', {}, `${x.seal.type6 ?? 'none'}${x.seal.submitted === false ? ' (submitted: false)' : ''}`)));
+      for (const n of x.seal.notes) parts.push(h('p', { class: 'small muted' }, n));
+    }
+  }
+
+  // 2. the worker's own address check
+  parts.push(h('h3', { class: 'step' }, '2. The worker\'s address check'),
+    h('p', { class: 'small muted' }, 'The worker runs claim-and-check before you fund anything. It opens the seal and confirms the released key controls the one-time address. Paste the line it printed. The line is the worker\'s own report, not a proof; checking it here catches a line for another claim or address.'),
+    h('input', { type: 'text', id: 'xmbl-line', value: x.checkText, placeholder: 'xmbl-check OK settlement=… claim=… fund=0x… receiver=xmb…', 'aria-label': 'Worker check line', oninput: (e) => { x.checkText = e.target.value; } }),
+    h('div', { class: 'row', style: 'margin-top:6px' }, h('button', { class: 'btn', type: 'button', id: 'xmbl-check-line', onclick: () => { x.check = parseCheckLine(x.checkText, x.seal); render(); } }, 'Check line')));
+  if (x.check) parts.push(x.check.ok ? msg('ok', `The worker confirmed the key controls ${x.check.fund}${x.seal?.ok ? ', the address in this response.' : '.'}`) : msg('error', h('ul', { class: 'plain' }, x.check.errors.map((e) => h('li', {}, e)))));
+
+  // 3. fund
+  parts.push(h('h3', { class: 'step' }, '3. Fund the one-time address'),
+    h('label', { class: 'field', for: 'xmbl-worker' }, 'Worker wallet (where the worker sweeps to; used to find leg 2)'),
+    h('input', { type: 'text', id: 'xmbl-worker', value: x.worker, placeholder: '0x…', oninput: (e) => { x.worker = e.target.value.trim(); } }));
+  const needs = [];
+  if (!x.seal?.ok) needs.push('a checked seal response');
+  if (!x.check?.ok) needs.push('the worker\'s matching check line');
+  if (!state.wallet.account) needs.push('your wallet connected');
+  if (state.payRail?.chainId !== XMBL_CHAIN_ID) needs.push('Base Sepolia as the pay rail');
+  else if (state.wallet.account && !onPayChain()) needs.push('your wallet on Base Sepolia');
+  if (needs.length) parts.push(h('p', { class: 'small muted' }, `Needs ${needs.join(', ')}.`));
+  if (state.payRail?.chainId !== XMBL_CHAIN_ID) parts.push(h('button', { class: 'btn', type: 'button', onclick: () => selectPayRail(rail.name) }, `Pay with ${rail.label}`));
+  if (x.seal?.ok) {
+    const f = x.fund;
+    parts.push(h('div', { class: 'row', style: 'margin-top:8px' },
+      h('button', { class: 'btn', type: 'button', id: 'xmbl-read', disabled: x.busy, onclick: xmblReadAddress }, x.busy ? 'Reading…' : 'Read the address'),
+      f ? h('span', { class: 'small', id: 'xmbl-state' }, `holds ${formatAtomic(f.usdc, 6)} USDC and ${fmtEth(f.eth)}, nonce ${f.nonce}: ${({ 'fund-usdc': 'fresh, ready for step 1', 'fund-gas': 'USDC is there, ready for step 2', funded: 'funded; waiting for the worker to sweep', used: 'already used', unsafe: 'not a state this app funds from' })[f.step.step]}`) : null));
+    if (f?.step.reason) parts.push(msg('warn', f.step.reason));
+    const ready = xmblReady() && !state.sending;
+    parts.push(h('div', { class: 'row', style: 'margin-top:8px' },
+      h('button', { class: 'btn primary', type: 'button', id: 'xmbl-fund-usdc', disabled: !(ready && f?.step.step === 'fund-usdc'), onclick: () => xmblFund('usdc') }, `Step 1: send ${x.seal.fund.amountText} USDC`),
+      h('button', { class: 'btn primary', type: 'button', id: 'xmbl-fund-gas', disabled: !(ready && f?.step.step === 'fund-gas'), onclick: () => xmblFund('gas') }, `Step 2: send ${fmtEth(XMBL_GAS_WEI)} for gas`)));
+    for (const [k, hash] of Object.entries(x.sent)) parts.push(h('p', { class: 'small mono' }, `${k === 'usdc' ? 'USDC' : 'Gas'} transaction: `, link(explorerTxUrl(rail.explorer, hash), hash)));
+  }
+  if (x.fundError) parts.push(msg('error', x.fundError));
+  if (x.msg) parts.push(msg(x.msg.kind, x.msg.text));
+
+  // 4. legs
+  if (x.seal?.ok) {
+    parts.push(h('h3', { class: 'step' }, '4. Both legs, from Transfer logs'),
+      h('p', { class: 'small muted' }, 'No public endpoint proves "task X settled to worker Y". The honest proof is two USDC Transfer legs: you to the one-time address, then the one-time address to the worker.'),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn', type: 'button', id: 'xmbl-legs', disabled: x.legsBusy, onclick: xmblLegs }, x.legsBusy ? 'Checking…' : 'Check both legs'),
+        x.legs ? h('button', { class: 'btn', type: 'button', onclick: xmblCopyProof }, 'Copy proof') : null));
+    if (x.legs) {
+      const leg = (label, t) => h('li', {}, h('b', {}, label), t ? [` ${formatAtomic(t.amount, 6)} USDC ${t.from} → ${t.to} `, link(explorerTxUrl(rail.explorer, t.txHash), 'tx ↗')] : ' not found yet');
+      parts.push(h('ul', { class: 'small checked', id: 'xmbl-leg-list', style: 'overflow-wrap:anywhere' },
+        leg('Leg 1, you → one-time address:', x.legs.leg1),
+        leg(`Leg 2, one-time address → ${isAddress(x.worker) ? 'worker' : 'anyone'}:`, x.legs.leg2)),
+      h('p', { class: 'small muted' }, `Searched blocks ${x.legs.fromBlock.toLocaleString()}–${x.legs.toBlock.toLocaleString()} in ${x.legs.calls} queries.`));
+    }
+    if (x.legsError) parts.push(msg('error', x.legsError));
+    if (x.proofMsg) parts.push(x.proofMsg === 'Proof copied.' ? msg('ok', x.proofMsg) : h('textarea', { class: 'proof', readonly: true }, x.proofMsg));
+  }
+  return h('section', { class: 'card', id: 'xmbl' }, parts);
 }
 
 // ---------------------------------------------------------------- boot
