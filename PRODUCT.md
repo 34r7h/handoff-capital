@@ -44,7 +44,7 @@ Wallet writes go through the visitor's own wallet. The live chain is Base Sepoli
 - **Testnet only.** Tokenized shares would need securities compliance before mainnet.
 - **No live revenue route yet.** If a company's `wallet_address` points at the contract, handoff's deposit poller would credit the swept USDC back as the company's balance. That loop waits on an opt-in payout-only flag in handoff, which the operator has been asked for. Until then, a company pays revenue in with `pay(amount, ref)`, or sends it to the contract and anyone calls `sync()`.
 - **The contract and the raise are new.** The share and dividend contract and the raise are this entry's in-window work. They do not exist in handoff itself.
-- **No paid sales yet.** No app in the store is priced (0 of 229 on 2026-10-12), so no sale has happened yet. Royalty reach is shown as percentages, not dollars.
+- **No paid sales yet.** No app in the store is priced (0 of 231 on 2026-10-12), so no sale has happened yet. Royalty reach is shown as percentages, not dollars.
 
 ## Brand Commitments
 
@@ -54,7 +54,7 @@ Wallet writes go through the visitor's own wallet. The live chain is Base Sepoli
 
 ## Evidence on Hand
 
-- Live data from handoff.lol: 8 companies and 229 app families in 911 versions. Apps of another owner include apps by two authors: impecc (10 apps would pay it) and SirKit (3).
+- Live data from handoff.lol on 2026-10-12: 8 companies and 231 app families in 915 versions. The page's royalty walk gives the same upstream list as handoff's own `/terms` for all 231 families. Apps of another owner include apps by two authors: impecc (11 apps would pay it, one of them handoff capital itself, through its components.json) and SirKit (3).
 - `contracts/src/AgentShares.sol`, with 11 Foundry tests including a fuzzed conservation check.
 - What does not exist yet, and must not be invented: a paid sale, mainnet settlement, investors, any revenue that has reached a share contract, Solana support.
 

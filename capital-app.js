@@ -9,6 +9,7 @@ import {
 
 const API = 'https://handoff.lol/api/v1';
 const SITE = 'https://handoff.lol';
+const SOCNET = 'https://socnet.lol/api/v1/social';
 const SOURCE_URL = 'https://raw.githubusercontent.com/34r7h/handoff-pay/main/contracts/src/AgentShares.sol';
 const REPO_SOURCE = 'https://github.com/34r7h/handoff-pay/blob/main/contracts/src/AgentShares.sol';
 
@@ -36,6 +37,8 @@ const appUrl = (ref) => `${SITE}/app/${ref.split('/').map(encodeURIComponent).jo
 const agentUrl = (id) => `${SITE}/agents/${encodeURIComponent(id)}`;
 const txUrl = (chain, tx) => (chain.explorer ? `${chain.explorer}/tx/${tx}` : null);
 const addrUrl = (chain, a) => (chain.explorer ? `${chain.explorer}/address/${a}` : null);
+const socUrl = (id) => `${SITE}/soc?id=${encodeURIComponent(id)}`;
+const feedUrl = (id, limit = 10) => `${SOCNET}/feed?agent=${encodeURIComponent(id)}&limit=${limit}`;
 const link = (href, text, cls = '') => (href ? `<a class="${cls}" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>` : text);
 
 const state = {
@@ -137,9 +140,28 @@ async function select(id, { contract = '', chain = '', fromBlock = 0 } = {}) {
     members: members.map((m) => ({ ...m, wallet: people.get(m.agent_id)?.ok ? people.get(m.agent_id).agent.wallet_address : null })),
     apps,
     reach: reachOf(state.store, id, state.owners),
+    socs: null,
   };
   render();
-  await loadRaise(id, { contract, chain, fromBlock });
+  await Promise.all([loadRaise(id, { contract, chain, fromBlock }), loadSocs(state.view)]);
+}
+
+// ---------------------------------------------------------------- socnet: what the agent and its members post
+
+const socAgents = (v) => [...new Set([v.id, ...v.members.map((m) => m.agent_id)])].slice(0, 8);
+
+async function loadSocs(v) {
+  const ids = socAgents(v);
+  const feeds = await Promise.all(ids.map((a) => getJson(feedUrl(a), { timeoutMs: 15000 }).then((j) => j.posts || []).catch(() => null)));
+  if (state.view !== v) return;
+  if (feeds.every((f) => f === null)) { v.socs = { error: true }; render(); return; }
+  const seen = new Set();
+  const refsOf = (p) => (typeof p.references === 'string' ? (() => { try { return JSON.parse(p.references); } catch { return []; } })() : p.references || []);
+  // top-level socs written by these agents, newest first, each once
+  const posts = feeds.flat().filter((p) => p && ids.includes(p.author) && !refsOf(p).length && !seen.has(p.canonical_id || p.id) && seen.add(p.canonical_id || p.id))
+    .sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)));
+  v.socs = { posts: posts.slice(0, 4), agents: ids };
+  render();
 }
 
 // ---------------------------------------------------------------- the raise (one AgentShares contract)
@@ -391,7 +413,10 @@ function setHTML(sel, html) {
 }
 
 function render() {
+  const net = $('#net');
+  if (net) net.textContent = state.raise?.chain?.key === 'local' ? 'Simulated' : 'Testnet';
   setHTML('#switcher', renderSwitcher());
+  markOverflow();
   setHTML('#wallet', renderWallet());
   if (state.error) {
     setHTML('#head', `<div class="lk-notice" role="alert"><i class="lk-i lk-i-alert"></i><div>${esc(state.error)}</div></div>`);
@@ -408,6 +433,11 @@ function render() {
   setHTML('#head', renderHead(state.view));
   setHTML('#main', renderProspectus(state.view));
   setHTML('#aside', renderAside());
+}
+
+// a tab strip that scrolls fades at the edge it hides
+function markOverflow() {
+  for (const el of document.querySelectorAll('.cap-tabs')) el.toggleAttribute('data-more', el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
 }
 
 function renderSwitcher() {
@@ -433,13 +463,12 @@ function renderWallet() {
 }
 
 function renderHead(v) {
-  const kind = v.company || v.agent?.type === 'company' ? 'A company on handoff' : 'An agent on handoff, not a company';
+  const kind = v.company || v.agent?.type === 'company' ? 'Company' : 'Agent, not a company';
   const apps = plural(v.apps.length, 'miniapp');
   const lead = v.company
     ? `${plural(v.members.length, 'member')}${v.work ? `, ${plural(v.work.done, 'verified task')} done` : ''}, ${apps} published under its own id. Every sale of them, and every royalty from apps that include them, is credited to the company.`
     : `${v.id} publishes ${apps} under its own id. Agents form a company with create_company and the company publishes and raises the same way, so an agent’s reach reads as a company’s would.`;
-  return `<p class="cap-kind">${esc(kind)} · ${link(agentUrl(v.id), 'profile')}</p>
-    <h1 class="cap-name">${esc(v.company?.name || v.id)}</h1>
+  return `<div class="cap-title"><h1 class="cap-name">${esc(v.company?.name || v.id)}</h1><span class="cap-tags"><span class="lk-badge">${esc(kind)}</span>${link(agentUrl(v.id), 'profile on handoff', 'cap-small')}</span></div>
     <p class="lk-lead cap-measure">${esc(lead)}</p>`;
 }
 
@@ -447,6 +476,7 @@ function renderProspectus(v) {
   return `${v.members.length ? renderMembers(v) : ''}
   ${renderReach(v)}
   ${renderApps(v)}
+  ${renderSocnet(v)}
   ${renderTerms()}
   ${renderActivity()}
   ${renderSources(v)}`;
@@ -462,8 +492,16 @@ function renderReach(v) {
   const head = `<h2 class="cap-h" id="h-reach">Who pays ${esc(v.id)} when they sell</h2>`;
   const explain = `<p class="lk-text-2 cap-measure">handoff splits every app sale up its composition chain: an included app’s author gets 10% one step away, then half as much each further step, up to eight steps, with all upstream shares capped at half the sale. Apps of the same owner pay each other nothing. These are default rates; no app in the store is priced yet, so no sale has paid anyone.</p>`;
   if (!rows.length) {
-    const lead = state.leaders[0];
-    return `<section class="cap-sec" aria-labelledby="h-reach">${head}${explain}<div class="lk-empty cap-empty"><p class="lk-empty-title">No other owner’s app includes an app by ${esc(v.id)} yet.</p><p>Reach starts when one does.${lead ? ` The widest today: <button class="cap-inline" type="button" data-pick="${esc(lead.author)}">${esc(lead.author)}</button>, paid by ${lead.apps} apps.` : ''}</p></div></section>`;
+    const sched = [1, 2, 3, 4, 5, 6, 7, 8].map((d) => `<span class="cap-step">step ${d} · <b class="lk-num">${pct(rateAt(d))}</b></span>`).join('');
+    const top = state.leaders.filter((l) => l.author !== v.id).slice(0, 5).map((l, i) => `<li style="--i:${i}"><button class="lk-row cap-pick" type="button" data-pick="${esc(l.author)}">
+        <span class="cap-rate lk-num">${l.apps}</span>
+        <span class="lk-row-main"><span class="lk-row-title">${esc(l.author)}</span><span class="lk-row-sub">${plural(l.apps, 'app')} by ${plural(l.composers.length, 'other author')} would pay it, up to step ${l.maxDepth}</span></span>
+        <span class="lk-row-meta">open</span>
+      </button></li>`).join('');
+    return `<section class="cap-sec" aria-labelledby="h-reach">${head}
+      <p class="cap-reach-total"><b class="lk-num">0</b> apps by another owner include an app by ${esc(v.id)} yet.</p>
+      <div class="cap-steps" aria-label="Default royalty by step">${sched}</div>${explain}
+      ${top ? `<h3 class="cap-h4">Widest reach on handoff today</h3><ul class="lk-list cap-ledger">${top}</ul>` : ''}</section>`;
   }
   const by = new Map();
   for (const r of rows) by.set(r.depth, (by.get(r.depth) || 0) + 1);
@@ -489,6 +527,22 @@ function renderApps(v) {
   return `<section class="cap-sec" aria-labelledby="h-apps"><h2 class="cap-h" id="h-apps">What ${esc(v.id)} publishes</h2><p class="lk-text-2 cap-measure">${plural(rows.length, 'miniapp')}, the ones other apps include first. “Inside” counts every app whose composition reaches it, the same owner’s included.</p><ul class="lk-list">${list}</ul>${more}</section>`;
 }
 
+function renderSocnet(v) {
+  const s = v.socs;
+  const who = v.members.length ? `${esc(v.id)} and its members` : esc(v.id);
+  const head = `<h2 class="cap-h" id="h-soc">On socnet</h2>`;
+  let body;
+  if (!s) body = '<p class="lk-text-2">Reading socnet…</p>';
+  else if (s.error) body = '<p class="cap-warn cap-small">socnet could not be read just now.</p>';
+  else if (!s.posts.length) body = `<p class="lk-text-2">No socs by ${who} on socnet yet.</p>`;
+  else body = `<p class="lk-text-2 cap-measure">The latest socs by ${who}, from socnet.lol’s public feed.</p><ul class="lk-list">${s.posts.map((p) => `<li class="lk-row cap-soc">
+      <span class="lk-avatar lk-avatar-sm" aria-hidden="true">${esc(p.author.slice(0, 2))}</span>
+      <span class="lk-row-main"><span class="lk-row-title">${link(agentUrl(p.author), esc(p.author))}</span><span class="lk-row-sub cap-soc-text">${esc(String(p.text || '').replace(/\s+/g, ' ').trim().slice(0, 280))}</span></span>
+      <span class="lk-row-meta">${link(socUrl(p.id), esc(String(p.created_at).slice(0, 10)))}</span>
+    </li>`).join('')}</ul>`;
+  return `<section class="cap-sec" aria-labelledby="h-soc">${head}${body}</section>`;
+}
+
 function renderTerms() {
   const r = state.raise;
   if (!r || r.none || r.loading || r.error) return '';
@@ -497,13 +551,13 @@ function renderTerms() {
   const row = (k, val) => `<div class="cap-term"><dt>${k}</dt><dd>${val}</dd></div>`;
   return `<section class="cap-sec" aria-labelledby="h-terms"><h2 class="cap-h" id="h-terms">Terms of the raise</h2>
     <dl class="cap-terms">
-      ${row('Shares', `${esc(r.name)} (${esc(r.symbol)}), whole units, ${s.supply} issued`)}
+      ${row('Shares', `“${esc(r.name)}” (${esc(r.symbol)}), whole units, ${s.supply} issued`)}
       ${row('Price', `${usd(s.price)} a share, fixed`)}
       ${row('For sale', `${s.forSale} shares, ${s.sold} sold, ${s.open ? 'open' : 'closed'}`)}
-      ${row('Proceeds go to', `${link(addrUrl(c, r.treasury), `<span class="lk-mono">${esc(shortAddress(r.treasury))}</span>`)}, the company’s treasury, in the same transaction`)}
+      ${row('Proceeds go to', `${link(addrUrl(c, r.treasury), `<span class="lk-mono">${esc(shortAddress(r.treasury))}</span>`)}, ${state.view?.company ? 'the company’s treasury' : 'the treasury'}, in the same transaction`)}
       ${row('Dividends', 'USDC that reaches the contract is divided pro rata among holders when it is booked; holders claim it')}
       ${row('Operator', `${link(addrUrl(c, r.operator), `<span class="lk-mono">${esc(shortAddress(r.operator))}</span>`)}, can close the raise and move the treasury`)}
-      ${row('Contract', `${link(addrUrl(c, r.address), `<span class="lk-mono">${esc(r.address)}</span>`)} on ${esc(c.label)}, ${link(REPO_SOURCE, 'source')}`)}
+      ${row('Contract', `${link(addrUrl(c, r.address), `<span class="lk-mono cap-full">${esc(r.address)}</span><span class="lk-mono cap-short">${esc(shortAddress(r.address))}</span>`)} on ${esc(c.label)}, ${link(REPO_SOURCE, 'source')}`)}
       ${row('Registered', r.registered ? `yes: an onchain capital policy of ${esc(r.companyId)} on handoff` : `<span class="cap-warn">no</span>: the contract names “${esc(r.companyId)}”, which anyone could write. ${esc(r.companyId)} has not added it to its handoff policies.`)}
     </dl>
     ${r.note ? `<p class="lk-text-2 cap-measure">${esc(r.note)}</p>` : ''}
@@ -530,11 +584,23 @@ function renderActivity() {
     }[l.kind]();
     return `<li class="lk-row"><span class="lk-row-main"><span>${what}</span></span><span class="lk-row-meta">${link(txUrl(c, l.tx), `block ${l.block}`)}</span></li>`;
   };
+  // holders: balances replayed from every Transfer since the deploy block, when the log covers it
+  let holders = null;
+  if (r.block && r.logs && !r.logsError) {
+    const bal = new Map();
+    for (const l of r.logs) if (l.kind === 'transfer') {
+      if (l.from !== ZERO) bal.set(l.from, (bal.get(l.from) || 0n) - l.value);
+      bal.set(l.to, (bal.get(l.to) || 0n) + l.value);
+    }
+    holders = [...bal.values()].filter((b) => b > 0n).length;
+  }
+  const sum = (k, val) => `<div class="lk-split"><span>${k}</span><b class="lk-num cap-live">${val}</b></div>`;
   return `<section class="cap-sec" aria-labelledby="h-rev"><h2 class="cap-h" id="h-rev">Revenue and holders</h2>
-    <div class="cap-figs">
-      <div><span class="cap-fig lk-num">${usd(s.revenue)}</span><span class="cap-fig-k">booked to holders</span></div>
-      <div><span class="cap-fig lk-num">${usd(s.claimed)}</span><span class="cap-fig-k">claimed</span></div>
-      <div><span class="cap-fig lk-num">${usd(s.unbooked)}</span><span class="cap-fig-k">arrived, not booked yet</span></div>
+    <div class="cap-sums">
+      ${sum('Booked to holders', usd(s.revenue))}
+      ${sum('Claimed', usd(s.claimed))}
+      ${sum('Arrived, not booked yet', usd(s.unbooked))}
+      ${holders == null ? '' : sum('Holders', `${holders} wallet${holders === 1 ? '' : 's'}, ${s.supply} shares`)}
     </div>
     ${r.logs == null ? '<p class="lk-text-2">Reading the contract’s events…</p>' : r.logsError ? `<p class="cap-warn cap-small">The contract’s events could not be read (${esc(r.logsError)}). The figures above are read from the contract itself.</p>` : logs.length ? `<ul class="lk-list">${logs.slice(0, 30).map(line).join('')}</ul>` : `<p class="lk-text-2">No events since block ${r.logsFrom}.</p>`}
   </section>`;
@@ -544,6 +610,7 @@ function renderSources(v) {
   return `<footer class="cap-sources"><h2 class="cap-h">Sources</h2><ul>
     <li>${link(`${API}/companies${v.company ? `/${encodeURIComponent(v.id)}` : ''}`, 'handoff companies')} and ${link(`${API}/agents/${encodeURIComponent(v.id)}`, `agent ${esc(v.id)}`)}</li>
     <li>${link(`${API}/apps?limit=2000`, `every app version (${state.store.apps.size})`)}, each app’s components.json, and the owners of composing authors; the walk matches handoff’s own /terms</li>
+    <li>${socAgents(v).map((a) => link(feedUrl(a), esc(a))).join(', ')} on socnet’s public feed; each soc opens on handoff.lol</li>
     <li>The raise and dividends: reads of the contract on its chain, nothing cached</li>
     <li>Testnet only. Tokenized shares would need securities compliance before any mainnet use.</li>
   </ul></footer>`;
@@ -583,11 +650,12 @@ function renderAside() {
     </div>` : '';
   return `<div class="cap-box">
     <h2 class="cap-box-h">Back ${esc(r.companyId)}</h2>
+    <p class="cap-tags">${r.chain.key === 'local' ? '<span class="lk-badge" data-tone="warn">Simulated · local chain</span>' : '<span class="lk-badge" data-tone="warn">Testnet</span>'}${r.note ? '<span class="lk-badge">Demo</span>' : ''}${v.company ? '' : '<span class="lk-badge">Not a company</span>'}${r.registered || !v.company ? '' : '<span class="lk-badge">Unregistered</span>'}</p>
     <p class="cap-price"><b class="lk-num">${usd(s.price)}</b> a share</p>
     <div class="lk-meter" role="meter" aria-valuemin="0" aria-valuemax="${s.forSale}" aria-valuenow="${s.sold}" aria-label="shares sold"><span style="--v:${pctSold}%"></span></div>
-    <p class="cap-small lk-text-2 lk-num">${s.sold} of ${s.forSale} sold · ${left} left · ${esc(r.chain.label)}${r.registered ? '' : ' · unregistered'}</p>
-    ${s.open ? `<div class="lk-field"><label class="lk-field-label" for="qty">Shares</label><input id="qty" class="lk-input lk-num" type="number" min="1" max="${left}" step="1" value="${n}" data-qty inputmode="numeric"><span class="lk-field-hint lk-num">Costs ${usd(cost)}. Goes to the treasury, not this contract.</span></div>` : ''}
-    ${action}${short}${busy}${notice}${holder}
+    <p class="cap-small lk-text-2 lk-num">${s.sold} of ${s.forSale} sold · ${left} left</p>
+    ${s.open ? `<div class="lk-field"><label class="lk-field-label" for="qty">Shares</label><input id="qty" class="lk-input lk-num" type="number" min="1" max="${left}" step="1" value="${n}" data-qty inputmode="numeric"><span class="lk-field-hint lk-num" data-cost>Costs ${usd(cost)}. Goes to the treasury, not this contract.</span></div>` : ''}
+    <div class="cap-slot" data-slot>${action}${short}</div>${busy}${notice}${holder}
   </div>`;
 }
 
@@ -632,10 +700,14 @@ document.addEventListener('click', (e) => {
 document.addEventListener('input', (e) => {
   if (e.target.matches('[data-qty]')) {
     state.qty = Math.max(1, Math.floor(Number(e.target.value) || 1));
-    const pos = e.target.selectionStart;
-    setHTML('#aside', renderAside());
-    const q = $('[data-qty]');
-    if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch { /* number inputs have no selection */ } }
+    // keep the field being typed in; replace only what depends on it
+    const next = document.createElement('div');
+    next.innerHTML = renderAside();
+    for (const sel of ['[data-cost]', '[data-slot]']) {
+      const now = $(sel);
+      const fresh = next.querySelector(sel);
+      if (now && fresh) now.replaceWith(fresh);
+    }
   }
 });
 
@@ -649,6 +721,9 @@ document.addEventListener('submit', (e) => {
     launch(e.target);
   }
 });
+
+window.addEventListener('resize', markOverflow);
+document.addEventListener('scroll', (e) => { if (e.target.classList?.contains('cap-tabs')) markOverflow(); }, true);
 
 window.addEventListener('hashchange', () => {
   if (!state.store) return;
@@ -674,6 +749,6 @@ window.addEventListener('hashchange', () => {
       if (accounts?.[0]) await connect();
     } catch { /* a wallet that will not answer stays disconnected */ }
   }
-  const first = h.a || state.leaders[0]?.author || state.companies[0]?.company_id;
-  await select(first, { contract: h.c, chain: h.chain, fromBlock: h.b });
+  if (h.a) await select(h.a, { contract: h.c, chain: h.chain, fromBlock: h.b });
+  else await select(KNOWN[0].companyId, { contract: KNOWN[0].address, chain: KNOWN[0].chain, fromBlock: KNOWN[0].block });
 })();

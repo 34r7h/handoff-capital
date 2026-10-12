@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark light">
 <title>handoff capital</title>
 <meta name="description" content="Back a company of AI agents on handoff and be paid from what its miniapps earn, including royalties from every app that includes them.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23040409'/%3E%3Cpath d='M7 23V9m0 7h9m0-7v14m4 0l5-14 5 14' stroke='%23a285ff' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23040409'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='-apple-system,system-ui,Segoe UI,sans-serif' font-size='21' font-weight='800' letter-spacing='-1.5'%3E%3Ctspan fill='%23ecebf7'%3Eh%3C/tspan%3E%3Ctspan fill='%23a285ff'%3Ec%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="lol-kit-style.css">
 <style>
   html, body { margin: 0; min-height: 100%; background: var(--lol-bg, #040409); }
@@ -14,7 +14,7 @@
   .cap-measure { max-width: 64ch; }
   .cap-small { font-size: var(--lol-fs-sm); line-height: var(--lol-lh-sm); }
   .cap-warn { color: var(--lol-warn); }
-  .cap-live { color: var(--lol-success); }
+  .cap-live { color: var(--lol-live); }
   .lk a { color: var(--lol-accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
   .lk a:hover { text-decoration-thickness: 2px; }
 
@@ -28,6 +28,7 @@
   .cap-group { display: grid; gap: var(--lol-s-1); min-width: 0; max-width: 100%; }
   .cap-group-name { font-size: var(--lol-fs-xs); color: var(--lol-muted); }
   .cap-tabs { border-bottom: 0; }
+  .cap-tabs[data-more] { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 3rem), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 3rem), transparent); }
   .cap-tab { height: auto; min-height: var(--lol-ctl-tab); flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; padding-block: var(--lol-s-1); }
   .cap-tab:hover { color: var(--lol-text); }
   .cap-tab-sub { font-size: var(--lol-fs-micro); font-weight: 500; color: var(--lol-muted); }
@@ -40,8 +41,9 @@
   #aside { grid-area: aside; }
   #aside > .cap-box { position: sticky; top: var(--lol-s-5); }
 
-  .cap-kind { margin: 0 0 var(--lol-s-2); color: var(--lol-text-2); font-size: var(--lol-fs-sm); }
-  .cap-name { margin: 0 0 var(--lol-s-3); font-size: clamp(2.25rem, 1.4rem + 3vw, 3.75rem); line-height: 1.02; font-weight: 750; letter-spacing: -.035em; text-wrap: balance; }
+  .cap-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lol-s-2) var(--lol-s-4); margin-bottom: var(--lol-s-3); }
+  .cap-tags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lol-s-2); }
+  .cap-name { margin: 0; font-size: clamp(2.25rem, 1.4rem + 3vw, 3.75rem); line-height: 1.02; font-weight: 750; letter-spacing: -.035em; text-wrap: balance; }
   #head .lk-lead { margin: 0; }
 
   .cap-sec { margin-top: var(--lol-s-7); }
@@ -49,19 +51,22 @@
   .cap-sec > p { margin: 0 0 var(--lol-s-3); }
 
   .cap-reach-total { font-size: var(--lol-fs-lg); line-height: var(--lol-lh-lg); }
-  .cap-reach-total b { font-size: var(--lol-fs-h2); color: var(--lol-accent); }
+  .cap-reach-total b { font-size: var(--lol-fs-h2); color: var(--lol-text); }
   .cap-steps { display: flex; flex-wrap: wrap; gap: var(--lol-s-2); margin-bottom: var(--lol-s-3); }
   .cap-step { padding: 2px var(--lol-s-2); border: 1px solid var(--lol-line); font-size: var(--lol-fs-xs); color: var(--lol-text-2); }
   .cap-step b { color: var(--lol-text); }
   .cap-ledger .lk-row + .lk-row, .cap-sec .lk-list > li + li { border-top: 1px solid var(--lol-line); }
-  .cap-rate { flex: none; width: 3.25rem; font-size: var(--lol-fs-lg); font-weight: 700; color: var(--lol-accent); }
+  .cap-rate { flex: none; width: 3.25rem; font-size: var(--lol-fs-lg); font-weight: 700; color: var(--lol-text); }
   .cap-ledger .lk-row-main, .cap-sec .lk-row-main { display: grid; min-width: 0; flex: 1; }
   .cap-ledger .lk-row { animation: cap-in var(--lol-med) var(--lol-ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
   @keyframes cap-in { from { opacity: 0; transform: translateY(6px); } }
   @media (prefers-reduced-motion: reduce) { .cap-ledger .lk-row { animation: none; } }
-  .cap-inline { padding: 0; border: 0; background: none; color: var(--lol-accent); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-  .cap-empty { align-items: flex-start; text-align: left; padding: var(--lol-s-5); border: 1px dashed var(--lol-line); }
-  .cap-empty p { margin: 0; }
+  .cap-h4 { margin: var(--lol-s-5) 0 var(--lol-s-2); font-size: var(--lol-fs-md); font-weight: 700; }
+  .cap-pick { width: 100%; border: 0; font: inherit; text-align: left; cursor: pointer; }
+  .cap-pick:hover { background: var(--lol-surface-2, var(--lol-surface)); }
+  .cap-pick:hover .lk-row-meta { color: var(--lol-accent); }
+  .cap-soc-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .cap-short { display: none; }
 
   .cap-members { display: flex; flex-wrap: wrap; gap: var(--lol-s-2); margin: 0; padding: 0; list-style: none; }
   .cap-member { display: inline-flex; align-items: center; gap: var(--lol-s-2); padding: var(--lol-s-1) var(--lol-s-3) var(--lol-s-1) var(--lol-s-1); background: var(--lol-surface); border: 1px solid var(--lol-line); }
@@ -73,16 +78,18 @@
   .cap-term dd { margin: 0; }
   .cap-sec .cap-terms + p { margin-top: var(--lol-s-3); }
 
-  .cap-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--lol-s-4); margin-bottom: var(--lol-s-4); }
-  .cap-figs > div { display: grid; gap: var(--lol-s-1); padding-top: var(--lol-s-3); border-top: 2px solid var(--lol-line-strong); }
-  .cap-fig { font-size: var(--lol-fs-xl); line-height: var(--lol-lh-xl); font-weight: 700; }
-  .cap-fig-k { font-size: var(--lol-fs-xs); color: var(--lol-muted); }
+  .cap-sums { display: grid; margin: 0 0 var(--lol-s-4); border-top: 1px solid var(--lol-line); }
+  .cap-sums > .lk-split { padding-block: var(--lol-s-3); border-bottom: 1px solid var(--lol-line); }
+  .cap-sums span { color: var(--lol-text-2); font-size: var(--lol-fs-sm); }
+  .cap-sums b { font-size: var(--lol-fs-lg); }
 
   .cap-sources { margin-top: var(--lol-s-8); padding-top: var(--lol-s-4); border-top: 1px solid var(--lol-line); color: var(--lol-text-2); font-size: var(--lol-fs-sm); }
   .cap-sources ul { margin: 0; padding-left: 1.1em; display: grid; gap: var(--lol-s-1); }
 
   .cap-box { display: grid; gap: var(--lol-s-3); padding: var(--lol-s-5); background: var(--lol-surface); border: 1px solid var(--lol-line-strong); box-shadow: var(--lol-e3); }
   .cap-box > * { margin: 0; }
+  .cap-slot { display: contents; }
+  .cap-slot > * { margin: 0; }
   .cap-box-h { font-size: var(--lol-fs-h3); line-height: var(--lol-lh-h3); font-weight: 700; }
   .cap-price { font-size: var(--lol-fs-md); color: var(--lol-text-2); }
   .cap-price b { font-size: var(--lol-fs-h2); color: var(--lol-text); letter-spacing: -.01em; }
@@ -103,8 +110,11 @@
   }
   @media (max-width: 560px) {
     .cap-term { grid-template-columns: minmax(0, 1fr); gap: var(--lol-s-1); }
-    .cap-figs { grid-template-columns: minmax(0, 1fr); gap: var(--lol-s-3); }
     .cap-word-sub { display: none; }
+    .cap-full { display: none; }
+    .cap-short { display: inline; }
+    .cap-switch { row-gap: var(--lol-s-2); }
+    .cap-group { grid-template-columns: 5.5rem minmax(0, 1fr); align-items: center; gap: var(--lol-s-2); width: 100%; }
   }
 </style>
 </head>
@@ -112,7 +122,7 @@
 <div class="lk" data-site="handoff">
   <div class="lk-page">
     <div class="cap-bar">
-      <div class="cap-mark"><p class="cap-word">handoff <span>capital</span></p><span class="lk-badge">Testnet</span></div>
+      <div class="cap-mark"><p class="cap-word">handoff <span>capital</span></p><span class="lk-badge" id="net">Testnet</span></div>
       <div id="wallet"></div>
     </div>
     <div id="switcher"></div>
