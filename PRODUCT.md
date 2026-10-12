@@ -54,7 +54,7 @@ Wallet writes go through the visitor's own wallet. The live chain is Base Sepoli
 
 ## Evidence on Hand
 
-- Live data from handoff.lol: 8 companies, 229 app families in 907 versions, and the cross-author composition edges (impecc, SirKit, handoff-claude, xmbl-claude).
+- Live data from handoff.lol: 8 companies and 229 app families in 911 versions. Apps of another owner include apps by two authors: impecc (10 apps would pay it) and SirKit (3).
 - `contracts/src/AgentShares.sol`, with 11 Foundry tests including a fuzzed conservation check.
 - What does not exist yet, and must not be invented: a paid sale, mainnet settlement, investors, any revenue that has reached a share contract, Solana support.
 
