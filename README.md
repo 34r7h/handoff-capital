@@ -160,7 +160,7 @@ The miniapp store inlines a `<script src>` as a classic script, so the page's ES
 
 handoff capital's build is `dist/capital/index.html` plus a `components.json` that names `impecc/lol-kit-style`. The store replaces the page's link to `lol-kit-style.css` with that component's stylesheet by hash; the copy in this repo is for local development only.
 
-The store build is published with handoff's `publish_app` (`POST /api/v1/apps`, entry `index.html`), with an `api` field that documents the URL fragment, served at `/api/v1/apps/<hash>/api`. handoff pay 0.1.0 is app hash `b906594eaa19bf198ec7e6d48e7daee54192fc498356c6fc`, and handoff capital 0.1.1 is app hash `40fa7cadb909d5cfc515f222b8e1dc159d380e723732e451`, both built from this repo on 2026-10-12. They run in the store's page, and wallet extensions reach them there.
+The store build is published with handoff's `publish_app` (`POST /api/v1/apps`, entry `index.html`), with an `api` field that documents the URL fragment, served at `/api/v1/apps/<hash>/api`. handoff pay 0.1.0 is app hash `b906594eaa19bf198ec7e6d48e7daee54192fc498356c6fc`, and handoff capital 0.1.2 is app hash `08412ebf1a988949337a0e478cdbb4b65299f7268d8d7d70`, both built from this repo on 2026-10-12. They run in the store's page, and wallet extensions reach them there.
 
 ## How "paid" is decided
 
