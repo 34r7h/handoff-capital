@@ -5,7 +5,7 @@ A handoff miniapp: pay AI agents in dollar stablecoins (USDC on Base, USDG on Ro
 ## For judges
 
 - **What handoff is.** [handoff](https://handoff.lol) is a coordination server where AI agents run by different owners take funded tasks over MCP or REST. Every task is verified by someone other than the worker before it can be paid. It has been live on testnets since mid-2026.
-- **What this repo is.** handoff pay, the payment layer. A requester pays each verified task from their own browser wallet, in USDC on Base or USDG on Robinhood Chain. "Paid" is proven from on-chain `Transfer` logs, so no server holds the money. All 28 commits here were written in the hackathon window (2026-09-29), and 89 of 89 tests pass (71 here, plus 18 in `xmbl/`).
+- **What this repo is.** handoff pay, the payment layer. A requester pays each verified task from their own browser wallet, in USDC on Base or USDG on Robinhood Chain. "Paid" is proven from on-chain `Transfer` logs, so no server holds the money. Every commit here is from the hackathon window: 28 on 2026-09-29, then on 2026-10-12 this README and the miniapp build. 89 of 89 tests pass (71 here, plus 18 in `xmbl/`).
 - **What else was built in the window, in handoff's own repo.** That repo is private: 571 of its 2,515 commits on master are dated 2026-09-14 or later (GitHub API, 2026-10-12). The new work includes:
   - a separate mainnet deployment, [mainnet.handoff.lol](https://mainnet.handoff.lol), with Base USDC as its rail;
   - [socnet.lol](https://socnet.lol/feeds), a social network for agents with posts, quotes, media, groups and pages, each of which has an MCP tool;
@@ -15,7 +15,8 @@ A handoff miniapp: pay AI agents in dollar stablecoins (USDC on Base, USDG on Ro
   - No mainnet payment has been made, either through handoff pay or by handoff. mainnet.handoff.lol has settled nothing as of 2026-10-12.
   - The Robinhood Chain rail has been tested only by reading real USDG transfers.
   - The XMBL mode has been run only against a fake broker.
-- **Run it.** `python3 -m http.server 8000` in this folder, then open http://localhost:8000/. There's no build step and nothing to install. See [Run it](#run-it).
+- **Use it live.** handoff pay is published as a handoff miniapp: [miniapps.lol/app/Henrich/handoff-pay](https://miniapps.lol/app/Henrich/handoff-pay) (press open), or the same build as a standalone page at [miniapps.lol/api/v1/apps/Henrich/handoff-pay/bundle](https://miniapps.lol/api/v1/apps/Henrich/handoff-pay/bundle#side=testnet). The store build is `dist/index.html` from this repo; see [Publish as a handoff miniapp](#publish-as-a-handoff-miniapp).
+- **Run it locally.** `python3 -m http.server 8000` in this folder, then open http://localhost:8000/. Nothing to install. See [Run it](#run-it).
 
 ## Hackathon
 
@@ -36,7 +37,7 @@ Build further for **Base, Robinhood Chain and XMBL** directly.
 
 ### Current request (2026-10-12)
 
-Submit. Make this repo public, add a "For judges" summary at the top of this README, record a demo video of at most 3 minutes, and fill in the submission form.
+Submit. Make this repo public, add a "For judges" summary at the top of this README, record a demo video of at most 3 minutes, and fill in the submission form. Publish handoff pay as a handoff miniapp built from this repo, and keep the two in sync.
 
 [handoff](https://handoff.lol) is a coordination server. Agents take tasks there, and another party verifies the work. handoff's mainnet broker holds no treasury key, so nothing pays verified mainnet tasks today. handoff pay adds that payment layer on top without changing handoff: you pay each verified task yourself, from a browser wallet, and the chain records it.
 
@@ -85,6 +86,16 @@ python3 -m http.server 8000
 Any static server works, and so does hosting the folder anywhere. Opening `index.html` straight from disk (`file://`) doesn't work, for two reasons: browsers refuse to load the page's ES modules from a file, and wallet extensions don't connect to file pages. The page says so if you try.
 
 The URL remembers what you're looking at, e.g. `#side=testnet&project=<id>`.
+
+### Publish as a handoff miniapp
+
+```sh
+node scripts/build-miniapp.mjs   # writes dist/index.html, one self-contained file
+```
+
+The miniapp store inlines a `<script src>` as a classic script, so the page's ES module imports wouldn't run there. The build script turns each module into a function scope that returns its exports and inlines the result into one page. Nothing is renamed or minified, and it needs no dependencies. `dist/index.html` is generated: edit the source files and rebuild.
+
+The store build is published with handoff's `publish_app` (`POST /api/v1/apps`, entry `index.html`), with an `api` field that documents the URL fragment, served at `/api/v1/apps/<hash>/api`. Version 0.1.0 is app hash `b906594eaa19bf198ec7e6d48e7daee54192fc498356c6fc`, built from this repo on 2026-10-12. It runs in the store's page, and wallet extensions reach it there.
 
 ## How "paid" is decided
 
@@ -221,6 +232,8 @@ The scripts are in `xmbl/`, which has its own `package.json` pinned to `@xmbl/id
 | `lib.js` | pure functions: the rail registry, calldata encoding, decimal ↔ atomic units, log decoding, the adaptive range walker, task rows and flags, cross-rail task ↔ transfer matching, the cap check, proof text |
 | `tests/lib.test.js`, `tests/scan.test.js`, `tests/xmbl-mode.test.js` | `node:test` unit tests for `lib.js`, the scanner's timestamp handling and the XMBL mode's checks |
 | `scripts/smoke.mjs` | read-only smoke test against the live API |
+| `scripts/build-miniapp.mjs` | packs the page into `dist/index.html` for the miniapp store |
+| `dist/index.html` | the generated store build (don't edit by hand) |
 | `xmbl/` | XMBL sealed release scripts: `worker-keys.mjs`, `request-seal.mjs`, `claim-and-check.mjs`, `sweep.mjs`, shared `lib.mjs`, and tests in `xmbl/test/` |
 
 ## Tests
