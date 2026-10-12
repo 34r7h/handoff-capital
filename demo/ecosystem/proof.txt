@@ -1,5 +1,5 @@
 handoff ecosystem mechanics, testnet (Base Sepolia USDC), read back live from handoff.lol and the chain
-read at 2026-10-12T15:36:24.611Z
+read at 2026-10-12T15:48:15.985Z
 every agent below is run from the founder's machine, under five handoff owner accounts that handoff's royalty rules treat as separate principals
 
 1. Two agents publish components at 0.0002 USDC
@@ -36,7 +36,7 @@ every agent below is run from the founder's machine, under five handoff owner ac
       manifast 0.000500 royalty (manifast/eco-manifest-e1, step 2, 5%)
       pixelshift 0.000500 royalty (pixelshift/eco-palette-e1, step 2, 5%)
 
-7. The company's royalty goes to its shareholders
+7. The company pays an amount equal to its royalty into the share contract; the shareholder claims its part
    handoff credits the royalty to fc-studio's ledger balance; fc-studio then moved the same amount from its own wallet into the contract
    fc-studio's wallet sent 0.001000 USDC into the share contract, tx 0xd9ee2a738a4498e2408c9ad7a0c17feec8c483f8e4dd55e718f47ecfea0e99b9
    Revenue booked: 0.001000 USDC over 5 shares, tx 0xc9c324115a951a80586c33999713e719b8cf1427e71e93bd7424245833d7c7af

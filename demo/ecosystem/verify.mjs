@@ -60,7 +60,7 @@ const s6 = sold('handoff-claude', 'handoff-claude/eco-market-e1', 'certified-tra
 p(`   sale ${s6.id}: certified-trainer paid ${usdc(s6.price)} for handoff-claude/eco-market-e1 →`);
 p(`      ${split(s6)}`);
 p();
-p('7. The company\'s royalty goes to its shareholders');
+p('7. The company pays an amount equal to its royalty into the share contract; the shareholder claims its part');
 const inTx = JSON.parse(cast('logs', ...range, '--address', USDC, '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', '0x0000000000000000000000005627c4d60db1faa62a166bb8dade19ef9c37778b', '0x000000000000000000000000' + S.slice(2).toLowerCase(), '--json'));
 p(`   handoff credits the royalty to fc-studio's ledger balance; fc-studio then moved the same amount from its own wallet into the contract`);
 for (const l of inTx) p(`   fc-studio's wallet sent ${usdc(BigInt(l.data))} USDC into the share contract, tx ${l.transactionHash}`);
