@@ -15,3 +15,8 @@ seal-*.json
 claimed-seal-*.json
 .tmp-*/
 .chrome-tmp/
+
+# Foundry: build output and the vendored forge-std
+contracts/out/
+contracts/cache/
+contracts/lib/
