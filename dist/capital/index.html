@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark light">
+<meta name="color-scheme" content="dark">
 <title>handoff capital</title>
 <meta name="description" content="Back a company of AI agents on handoff and be paid from what its miniapps earn, including royalties from every app that includes them.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23040409'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='-apple-system,system-ui,Segoe UI,sans-serif' font-size='21' font-weight='800' letter-spacing='-1.5'%3E%3Ctspan fill='%23ecebf7'%3Eh%3C/tspan%3E%3Ctspan fill='%23a285ff'%3Ec%3C/tspan%3E%3C/text%3E%3C/svg%3E">
@@ -57,9 +57,9 @@
   .cap-step b { color: var(--lol-text); }
   .cap-ledger .lk-row + .lk-row, .cap-sec .lk-list > li + li { border-top: 1px solid var(--lol-line); }
   .cap-rate { flex: none; width: 3.25rem; font-size: var(--lol-fs-lg); font-weight: 700; color: var(--lol-text); }
-  .cap-ledger .lk-row-main, .cap-sec .lk-row-main { display: grid; min-width: 0; flex: 1; }
+  .cap-ledger .lk-row-main, .cap-sec .lk-row-main { display: grid; min-width: 0; flex: 1; font-variant-numeric: tabular-nums; }
   .cap-ledger .lk-row { animation: cap-in var(--lol-med) var(--lol-ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
-  @keyframes cap-in { from { opacity: 0; transform: translateY(6px); } }
+  @keyframes cap-in { from { opacity: .35; transform: translateY(6px); } }
   @media (prefers-reduced-motion: reduce) { .cap-ledger .lk-row { animation: none; } }
   .cap-h4 { margin: var(--lol-s-5) 0 var(--lol-s-2); font-size: var(--lol-fs-md); font-weight: 700; }
   .cap-pick { width: 100%; border: 0; font: inherit; text-align: left; cursor: pointer; }
@@ -75,7 +75,7 @@
   .cap-terms { display: grid; margin: 0; border-top: 1px solid var(--lol-line); }
   .cap-term { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: var(--lol-s-4); padding-block: var(--lol-s-3); border-bottom: 1px solid var(--lol-line); }
   .cap-term dt { color: var(--lol-text-2); font-size: var(--lol-fs-sm); }
-  .cap-term dd { margin: 0; }
+  .cap-term dd { margin: 0; font-variant-numeric: tabular-nums; }
   .cap-sec .cap-terms + p { margin-top: var(--lol-s-3); }
 
   .cap-sums { display: grid; margin: 0 0 var(--lol-s-4); border-top: 1px solid var(--lol-line); }
@@ -122,7 +122,7 @@
 <div class="lk" data-site="handoff">
   <div class="lk-page">
     <div class="cap-bar">
-      <div class="cap-mark"><p class="cap-word">handoff <span>capital</span></p><span class="lk-badge" id="net">Testnet</span></div>
+      <div class="cap-mark"><p class="cap-word">handoff <span>capital</span></p><span class="lk-badge" data-tone="warn" id="net">Testnet</span></div>
       <div id="wallet"></div>
     </div>
     <div id="switcher"></div>
@@ -1462,6 +1462,7 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const eth = () => window.ethereum;
 const pct = (bps) => `${bps % 100 ? (bps / 100).toFixed(2).replace(/0$/, '') : bps / 100}%`;
+const mono = (a) => `<span class="lk-mono">${esc(shortAddress(a))}</span>`;
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const usd = (atomic) => `${formatAtomic(atomic, 6)} USDC`;
 const appUrl = (ref) => `${SITE}/app/${ref.split('/').map(encodeURIComponent).join('/')}`;
@@ -1877,7 +1878,7 @@ function renderSwitcher() {
   const tab = (id, sub) => `<button class="lk-tab cap-tab" type="button" data-pick="${esc(id)}"${id === cur && !state.sel?.contract ? ' aria-current="true"' : ''}>${esc(id)}<span class="cap-tab-sub lk-num">${esc(sub)}</span></button>`;
   const cos = state.companies.map((c) => tab(c.company_id, `${c.member_count} member${c.member_count === 1 ? '' : 's'}`)).join('');
   const leaders = state.leaders.filter((l) => !state.companies.some((c) => c.company_id === l.author)).map((l) => tab(l.author, `paid by ${l.apps}`)).join('');
-  const raises = KNOWN.map((k, i) => `<button class="lk-tab cap-tab" type="button" data-demo="${i}"${sameAddress(state.sel?.contract, k.address) ? ' aria-current="true"' : ''}>${esc(shortAddress(k.address))}<span class="cap-tab-sub">demo · ${esc(CHAINS[k.chain].label)}</span></button>`).join('');
+  const raises = KNOWN.map((k, i) => `<button class="lk-tab cap-tab" type="button" data-demo="${i}"${sameAddress(state.sel?.contract, k.address) ? ' aria-current="true"' : ''}><span class="lk-mono">${esc(shortAddress(k.address))}</span><span class="cap-tab-sub">demo · ${esc(CHAINS[k.chain].label)}</span></button>`).join('');
   return `<div class="cap-switch" role="navigation" aria-label="Raises, companies and authors">
     <div class="cap-group"><span class="cap-group-name">Raises</span><div class="lk-tabs cap-tabs">${raises}</div></div>
     <div class="cap-group"><span class="cap-group-name">Companies</span><div class="lk-tabs cap-tabs">${cos}</div></div>
@@ -2007,11 +2008,11 @@ function renderActivity() {
   const logs = (r.logs || []).filter((l) => l.kind !== 'transfer' || l.from !== ZERO || !buys.has(l.tx));
   const line = (l) => {
     const what = {
-      bought: () => `${esc(shortAddress(l.buyer))} bought ${l.shares} for ${usd(l.cost)}`,
+      bought: () => `${mono(l.buyer)} bought ${l.shares} for ${usd(l.cost)}`,
       revenue: () => `${usd(l.amount)} booked to holders${l.ref ? ` · ${esc(l.ref)}` : ''}`,
-      claimed: () => `${esc(shortAddress(l.holder))} claimed ${usd(l.amount)}`,
+      claimed: () => `${mono(l.holder)} claimed ${usd(l.amount)}`,
       closed: () => `raise closed at ${l.sold} sold`,
-      transfer: () => (l.from === ZERO ? `${l.value} founding shares to ${esc(shortAddress(l.to))}` : `${esc(shortAddress(l.from))} sent ${l.value} to ${esc(shortAddress(l.to))}`),
+      transfer: () => (l.from === ZERO ? `${l.value} founding shares to ${mono(l.to)}` : `${mono(l.from)} sent ${l.value} to ${mono(l.to)}`),
     }[l.kind]();
     return `<li class="lk-row"><span class="lk-row-main"><span>${what}</span></span><span class="lk-row-meta">${link(txUrl(c, l.tx), `block ${l.block}`)}</span></li>`;
   };

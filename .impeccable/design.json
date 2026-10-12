@@ -1,0 +1,536 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-12T14:56:56+00:00",
+  "title": "Design System: handoff capital",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Night Ground",
+        "canonical": "#040409",
+        "oklch": "oklch(11.1% 0.015 283.6)",
+        "tonalRamp": [
+          "oklch(15.0% 0.015 283.6)",
+          "oklch(26.0% 0.015 283.6)",
+          "oklch(37.0% 0.015 283.6)",
+          "oklch(48.0% 0.015 283.6)",
+          "oklch(60.0% 0.015 283.6)",
+          "oklch(71.0% 0.015 283.6)",
+          "oklch(83.0% 0.015 283.6)",
+          "oklch(95.0% 0.015 283.6)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Ledger Slate",
+        "canonical": "#21212b",
+        "oklch": "oklch(25.2% 0.019 285.0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.019 285.0)",
+          "oklch(26.0% 0.019 285.0)",
+          "oklch(37.0% 0.019 285.0)",
+          "oklch(48.0% 0.019 285.0)",
+          "oklch(60.0% 0.019 285.0)",
+          "oklch(71.0% 0.019 285.0)",
+          "oklch(83.0% 0.019 285.0)",
+          "oklch(95.0% 0.019 285.0)"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Raised Slate",
+        "canonical": "#2c2c3a",
+        "oklch": "oklch(29.9% 0.025 284.8)",
+        "tonalRamp": [
+          "oklch(15.0% 0.025 284.8)",
+          "oklch(26.0% 0.025 284.8)",
+          "oklch(37.0% 0.025 284.8)",
+          "oklch(48.0% 0.025 284.8)",
+          "oklch(60.0% 0.025 284.8)",
+          "oklch(71.0% 0.025 284.8)",
+          "oklch(83.0% 0.025 284.8)",
+          "oklch(95.0% 0.025 284.8)"
+        ]
+      },
+      "surface-3": {
+        "role": "neutral",
+        "displayName": "Badge Slate",
+        "canonical": "#303041",
+        "oklch": "oklch(31.7% 0.030 284.5)",
+        "tonalRamp": [
+          "oklch(15.0% 0.030 284.5)",
+          "oklch(26.0% 0.030 284.5)",
+          "oklch(37.0% 0.030 284.5)",
+          "oklch(48.0% 0.030 284.5)",
+          "oklch(60.0% 0.030 284.5)",
+          "oklch(71.0% 0.030 284.5)",
+          "oklch(83.0% 0.030 284.5)",
+          "oklch(95.0% 0.030 284.5)"
+        ]
+      },
+      "inset": {
+        "role": "neutral",
+        "displayName": "Well",
+        "canonical": "#0a0a1a",
+        "oklch": "oklch(15.5% 0.034 281.7)",
+        "tonalRamp": [
+          "oklch(15.0% 0.034 281.7)",
+          "oklch(26.0% 0.034 281.7)",
+          "oklch(37.0% 0.034 281.7)",
+          "oklch(48.0% 0.034 281.7)",
+          "oklch(60.0% 0.034 281.7)",
+          "oklch(71.0% 0.034 281.7)",
+          "oklch(83.0% 0.034 281.7)",
+          "oklch(95.0% 0.034 281.7)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Rule Indigo",
+        "canonical": "#43438c",
+        "oklch": "oklch(42.3% 0.118 280.1)",
+        "tonalRamp": [
+          "oklch(15.0% 0.118 280.1)",
+          "oklch(26.0% 0.118 280.1)",
+          "oklch(37.0% 0.118 280.1)",
+          "oklch(48.0% 0.118 280.1)",
+          "oklch(60.0% 0.118 280.1)",
+          "oklch(71.0% 0.118 280.1)",
+          "oklch(83.0% 0.118 280.1)",
+          "oklch(95.0% 0.118 280.1)"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Rule",
+        "canonical": "#7071ca",
+        "oklch": "oklch(58.9% 0.134 281.0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.134 281.0)",
+          "oklch(26.0% 0.134 281.0)",
+          "oklch(37.0% 0.134 281.0)",
+          "oklch(48.0% 0.134 281.0)",
+          "oklch(60.0% 0.134 281.0)",
+          "oklch(71.0% 0.134 281.0)",
+          "oklch(83.0% 0.134 281.0)",
+          "oklch(95.0% 0.134 281.0)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#eceaff",
+        "oklch": "oklch(94.5% 0.028 290.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.028 290.2)",
+          "oklch(26.0% 0.028 290.2)",
+          "oklch(37.0% 0.028 290.2)",
+          "oklch(48.0% 0.028 290.2)",
+          "oklch(60.0% 0.028 290.2)",
+          "oklch(71.0% 0.028 290.2)",
+          "oklch(83.0% 0.028 290.2)",
+          "oklch(95.0% 0.028 290.2)"
+        ]
+      },
+      "text-2": {
+        "role": "neutral",
+        "displayName": "Second Ink",
+        "canonical": "#a6a4cc",
+        "oklch": "oklch(73.4% 0.057 287.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.057 287.2)",
+          "oklch(26.0% 0.057 287.2)",
+          "oklch(37.0% 0.057 287.2)",
+          "oklch(48.0% 0.057 287.2)",
+          "oklch(60.0% 0.057 287.2)",
+          "oklch(71.0% 0.057 287.2)",
+          "oklch(83.0% 0.057 287.2)",
+          "oklch(95.0% 0.057 287.2)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#9796b4",
+        "oklch": "oklch(68.4% 0.044 286.7)",
+        "tonalRamp": [
+          "oklch(15.0% 0.044 286.7)",
+          "oklch(26.0% 0.044 286.7)",
+          "oklch(37.0% 0.044 286.7)",
+          "oklch(48.0% 0.044 286.7)",
+          "oklch(60.0% 0.044 286.7)",
+          "oklch(71.0% 0.044 286.7)",
+          "oklch(83.0% 0.044 286.7)",
+          "oklch(95.0% 0.044 286.7)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Prospectus Violet",
+        "canonical": "#a285ff",
+        "oklch": "oklch(69.7% 0.174 292.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.174 292.2)",
+          "oklch(26.0% 0.174 292.2)",
+          "oklch(37.0% 0.174 292.2)",
+          "oklch(48.0% 0.174 292.2)",
+          "oklch(60.0% 0.174 292.2)",
+          "oklch(71.0% 0.174 292.2)",
+          "oklch(83.0% 0.174 292.2)",
+          "oklch(95.0% 0.174 292.2)"
+        ]
+      },
+      "on-accent": {
+        "role": "primary",
+        "displayName": "Violet Ink",
+        "canonical": "#0a0a16",
+        "oklch": "oklch(15.2% 0.026 282.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.026 282.9)",
+          "oklch(26.0% 0.026 282.9)",
+          "oklch(37.0% 0.026 282.9)",
+          "oklch(48.0% 0.026 282.9)",
+          "oklch(60.0% 0.026 282.9)",
+          "oklch(71.0% 0.026 282.9)",
+          "oklch(83.0% 0.026 282.9)",
+          "oklch(95.0% 0.026 282.9)"
+        ]
+      },
+      "live": {
+        "role": "secondary",
+        "displayName": "Live Lime",
+        "canonical": "#ccff3b",
+        "oklch": "oklch(93.2% 0.214 123.8)",
+        "tonalRamp": [
+          "oklch(15.0% 0.214 123.8)",
+          "oklch(26.0% 0.214 123.8)",
+          "oklch(37.0% 0.214 123.8)",
+          "oklch(48.0% 0.214 123.8)",
+          "oklch(60.0% 0.214 123.8)",
+          "oklch(71.0% 0.214 123.8)",
+          "oklch(83.0% 0.214 123.8)",
+          "oklch(95.0% 0.214 123.8)"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "Caveat Amber",
+        "canonical": "#ffc24d",
+        "oklch": "oklch(84.9% 0.147 80.4)",
+        "tonalRamp": [
+          "oklch(15.0% 0.147 80.4)",
+          "oklch(26.0% 0.147 80.4)",
+          "oklch(37.0% 0.147 80.4)",
+          "oklch(48.0% 0.147 80.4)",
+          "oklch(60.0% 0.147 80.4)",
+          "oklch(71.0% 0.147 80.4)",
+          "oklch(83.0% 0.147 80.4)",
+          "oklch(95.0% 0.147 80.4)"
+        ]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Confirmed Green",
+        "canonical": "#7ce88a",
+        "oklch": "oklch(84.4% 0.164 146.8)",
+        "tonalRamp": [
+          "oklch(15.0% 0.164 146.8)",
+          "oklch(26.0% 0.164 146.8)",
+          "oklch(37.0% 0.164 146.8)",
+          "oklch(48.0% 0.164 146.8)",
+          "oklch(60.0% 0.164 146.8)",
+          "oklch(71.0% 0.164 146.8)",
+          "oklch(83.0% 0.164 146.8)",
+          "oklch(95.0% 0.164 146.8)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The company or agent name, once per page."
+      },
+      "headline": {
+        "displayName": "Headline figure",
+        "purpose": "The share price in the raise box and the count that opens the reach section, inside a sentence; 32px at kit container >=1024px, 24px at 620-1023px, 20px below."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section heads, the raise box head and the wordmark."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "The one-paragraph summary under the name, Second Ink, 64ch."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Term values and running explanations, 64ch."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Button, tab and field-label text."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Term and sums labels, row sub-lines, the sources footer."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Row meta, badges, step chips, switcher group names, field hints."
+      },
+      "micro": {
+        "displayName": "Micro",
+        "purpose": "The sub-line under each switcher tab."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Addresses and hashes only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "ledger",
+        "value": "0 1.5px 5px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26)",
+        "purpose": "Every row list (reach, apps, socnet, activity). Kit token --lol-e2."
+      },
+      {
+        "name": "raise",
+        "value": "0 3px 10px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26)",
+        "purpose": "The raise box, the most lifted object at rest. Kit token --lol-e3."
+      },
+      {
+        "name": "hover-lift",
+        "value": "0 5.4px 18px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.09)",
+        "purpose": "A button under the pointer, with a hairline top edge. Kit token --lol-e4 plus --lol-edge."
+      },
+      {
+        "name": "press",
+        "value": "0 0.6px 2px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26)",
+        "purpose": "A pressed button, with translateY(1px). Kit token --lol-e1."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(.2,.8,.2,1)",
+        "purpose": "Kit easing (--lol-ease) for every transition and the ledger entrance."
+      },
+      {
+        "name": "fast",
+        "value": "140ms",
+        "purpose": "Hover, border and shadow state changes (--lol-fast)."
+      },
+      {
+        "name": "med",
+        "value": "280ms",
+        "purpose": "Meter fill width and the reach-ledger row entrance (--lol-med)."
+      },
+      {
+        "name": "ledger-stagger",
+        "value": "45ms per row, capped at row 12",
+        "purpose": "Reach rows rise 6px in sequence once per company; off under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "kit-watch",
+        "value": "container < 268px"
+      },
+      {
+        "name": "kit-touch",
+        "value": "container 268px-419px (40px controls, 16px inputs, 12px gutter)"
+      },
+      {
+        "name": "kit-sm",
+        "value": "container 420px-619px (16px gutter)"
+      },
+      {
+        "name": "kit-lg",
+        "value": "container >= 1024px (32px gutter, h2 32px)"
+      },
+      {
+        "name": "stack",
+        "value": "max-width: 960px (one column: name, raise box, prospectus)"
+      },
+      {
+        "name": "phone",
+        "value": "max-width: 560px (terms stack, short addresses, side-labelled switcher)"
+      }
+    ],
+    "lightScheme": {
+      "note": "Not used: the page pins the dark palette with data-theme=\"dark\" on the root. Kept for reference: under the kit's light handoff palette live lime stays #ccff3b and would be illegible as ink (1.1:1 on bg).",
+      "bg": "#dfe3f4",
+      "surface": "#ffffff",
+      "surface-2": "#eef1fb",
+      "surface-3": "#e0e5f6",
+      "inset": "#e2e5f3",
+      "line": "#9fabd8",
+      "line-strong": "#6f7fbe",
+      "text": "#0b0b18",
+      "text-2": "#41436b",
+      "muted": "#585b86",
+      "accent": "#4a24e0",
+      "on-accent": "#ffffff",
+      "live": "#ccff3b",
+      "warn": "#865f00",
+      "success": "#0d7546"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary-lg",
+      "description": "The one violet action: connect, approve, buy, launch. Wallet steps are numbered in the label.",
+      "html": "<button class=\"ds-btn ds-btn-primary ds-btn-lg\" type=\"button\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"square\" aria-hidden=\"true\"><path d=\"M4 8h16v11H4z M7 8V4h10v4\"/><path d=\"M14 11h7v5h-7z\" fill=\"currentColor\" stroke=\"none\"/></svg>Connect wallet to buy</button> <button class=\"ds-btn ds-btn-primary ds-btn-lg\" type=\"button\">1 of 2 · Approve 0.10 USDC</button> <button class=\"ds-btn ds-btn-primary ds-btn-lg\" type=\"button\" disabled>2 of 2 · Buy 1 share</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 16px; border: 1px solid var(--lol-line-strong, #7071ca); border-radius: 0; background: var(--lol-surface-2, #2c2c3a); color: var(--lol-text, #eceaff); font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); font-size: 13px; font-weight: 600; letter-spacing: .005em; line-height: 1; cursor: pointer; transition: box-shadow 140ms cubic-bezier(.2,.8,.2,1), transform 140ms cubic-bezier(.2,.8,.2,1); } .ds-btn:hover { box-shadow: 0 5.4px 18px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.09); } .ds-btn:active { box-shadow: 0 0.6px 2px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26); transform: translateY(1px); } .ds-btn:focus-visible { outline: 2px solid var(--lol-accent, #a285ff); outline-offset: 2px; } .ds-btn:disabled { background: var(--lol-surface-3, #303041); border-color: var(--lol-line, #43438c); color: var(--lol-muted, #9796b4); box-shadow: none; transform: none; cursor: not-allowed; } .ds-btn-primary { background: var(--lol-accent, #a285ff); border-color: var(--lol-accent, #a285ff); color: var(--lol-on-accent, #0a0a16); } .ds-btn-lg { height: 44px; padding: 0 24px; font-size: 15px; width: 100%; margin-bottom: 8px; }"
+    },
+    {
+      "name": "Secondary and Ghost Buttons",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Claim, Open (secondary) and Book arrived USDC, Close the raise (ghost).",
+      "html": "<div class=\"ds-row2\"><button class=\"ds-btn\" type=\"button\">Claim</button><button class=\"ds-btn ds-btn-ghost\" type=\"button\">Book 0.00 USDC</button></div>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 16px; border: 1px solid var(--lol-line-strong, #7071ca); border-radius: 0; background: var(--lol-surface-2, #2c2c3a); color: var(--lol-text, #eceaff); font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); font-size: 13px; font-weight: 600; letter-spacing: .005em; line-height: 1; cursor: pointer; transition: box-shadow 140ms cubic-bezier(.2,.8,.2,1), transform 140ms cubic-bezier(.2,.8,.2,1); } .ds-btn:hover { box-shadow: 0 5.4px 18px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.09); } .ds-btn:active { box-shadow: 0 0.6px 2px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26); transform: translateY(1px); } .ds-btn:focus-visible { outline: 2px solid var(--lol-accent, #a285ff); outline-offset: 2px; } .ds-btn:disabled { background: var(--lol-surface-3, #303041); border-color: var(--lol-line, #43438c); color: var(--lol-muted, #9796b4); box-shadow: none; transform: none; cursor: not-allowed; } .ds-btn-ghost { background: transparent; border-color: transparent; color: var(--lol-text-2, #a6a4cc); } .ds-btn-ghost:hover { background: var(--lol-surface-2, #2c2c3a); box-shadow: none; } .ds-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 22rem; }"
+    },
+    {
+      "name": "Shares Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Inset well, square, violet focus ring; label above, cost hint below in tabular figures.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-qty\">Shares</label><input id=\"ds-qty\" class=\"ds-input\" type=\"number\" min=\"1\" value=\"1\"><span class=\"ds-field-hint\">Costs 0.10 USDC. Goes to the treasury, not this contract.</span></div>",
+      "css": ".ds-field { display: grid; gap: 6px; width: 22rem; font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); } .ds-field-label { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--lol-text-2, #a6a4cc); } .ds-field-hint { font-size: 12px; line-height: 16px; color: var(--lol-muted, #9796b4); font-variant-numeric: tabular-nums; } .ds-input { height: 36px; padding: 0 12px; border: 1px solid var(--lol-line-strong, #7071ca); border-radius: 0; background: var(--lol-inset, #0a0a1a); color: var(--lol-text, #eceaff); font: inherit; font-size: 15px; font-variant-numeric: tabular-nums; appearance: textfield; transition: border-color 140ms cubic-bezier(.2,.8,.2,1), box-shadow 140ms cubic-bezier(.2,.8,.2,1); } .ds-input:hover { border-color: var(--lol-text-2, #a6a4cc); } .ds-input:focus { outline: none; border-color: var(--lol-accent, #a285ff); box-shadow: inset 0 0 0 1px var(--lol-accent, #a285ff); }"
+    },
+    {
+      "name": "Company Switcher",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "One labelled tab strip per group; each tab is an id over a micro tabular sub-line; current tab takes a 2px violet underline.",
+      "html": "<div class=\"ds-group\"><span class=\"ds-group-name\">Companies</span><div class=\"ds-tabs\"><button class=\"ds-tab\" type=\"button\" aria-current=\"true\">agy<span class=\"ds-tab-sub\">7 members</span></button><button class=\"ds-tab\" type=\"button\">blitzrank-growth<span class=\"ds-tab-sub\">3 members</span></button><button class=\"ds-tab\" type=\"button\">gatewatch-company<span class=\"ds-tab-sub\">1 member</span></button></div></div>",
+      "css": ".ds-group { display: grid; gap: 4px; font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); } .ds-group-name { font-size: 12px; line-height: 16px; color: var(--lol-muted, #9796b4); } .ds-tabs { display: flex; overflow-x: auto; scrollbar-width: none; } .ds-tab { position: relative; display: inline-flex; flex-direction: column; align-items: flex-start; justify-content: center; min-height: 40px; padding: 4px 12px; border: 0; background: transparent; color: var(--lol-text-2, #a6a4cc); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; } .ds-tab::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px; background: transparent; } .ds-tab:hover { background: var(--lol-surface-2, #2c2c3a); color: var(--lol-text, #eceaff); } .ds-tab:focus-visible { outline: 2px solid var(--lol-accent, #a285ff); outline-offset: 2px; } .ds-tab[aria-current] { color: var(--lol-text, #eceaff); } .ds-tab[aria-current]::after { background: var(--lol-accent, #a285ff); } .ds-tab-sub { font-size: 10px; line-height: 14px; font-weight: 500; color: var(--lol-muted, #9796b4); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Status beside what it qualifies; warn tone changes only the text to amber.",
+      "html": "<p class=\"ds-tags\"><span class=\"ds-badge ds-badge-warn\">Testnet</span><span class=\"ds-badge\">Demo</span><span class=\"ds-badge\">Not a company</span><span class=\"ds-badge\">Unregistered</span></p>",
+      "css": ".ds-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; } .ds-badge { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border: 1px solid var(--lol-line, #43438c); border-radius: 0; background: var(--lol-surface-3, #303041); color: var(--lol-text-2, #a6a4cc); font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); font-size: 12px; line-height: 1; font-weight: 600; white-space: nowrap; } .ds-badge-warn { color: var(--lol-warn, #ffc24d); }"
+    },
+    {
+      "name": "Reach Ledger",
+      "kind": "custom",
+      "refersTo": "ledger-row",
+      "description": "Ruled rows in one lifted list: fixed tabular rate column in Ink, title and route, step and terms link in meta. Rows rise once on entry.",
+      "html": "<ul class=\"ds-list\"><li class=\"ds-row\" style=\"--i:0\"><span class=\"ds-rate\">10%</span><span class=\"ds-row-main\"><a class=\"ds-row-title\" href=\"#\">Henrich/handoff-capital</a><span class=\"ds-row-sub\">includes impecc/lol-kit-style</span></span><span class=\"ds-row-meta\">step 1 · <a href=\"#\">terms</a></span></li><li class=\"ds-row\" style=\"--i:1\"><span class=\"ds-rate\">5%</span><span class=\"ds-row-main\"><a class=\"ds-row-title\" href=\"#\">handoff-claude/xn8-budget-probe</a><span class=\"ds-row-sub\">includes impecc/lol-kit-style through 1 other app</span></span><span class=\"ds-row-meta\">step 2 · <a href=\"#\">terms</a></span></li></ul>",
+      "css": ".ds-list { display: flex; flex-direction: column; width: 40rem; max-width: 100%; margin: 0; padding: 0; list-style: none; background: var(--lol-surface, #21212b); border: 1px solid var(--lol-line, #43438c); box-shadow: 0 1.5px 5px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26); font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); } .ds-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 12px 16px; background: var(--lol-surface, #21212b); color: var(--lol-text, #eceaff); font-size: 15px; line-height: 22px; animation: ds-in 280ms cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 45ms); } .ds-row + .ds-row { border-top: 1px solid var(--lol-line, #43438c); } .ds-rate { flex: none; width: 3.25rem; font-size: 17px; font-weight: 700; color: var(--lol-text, #eceaff); font-variant-numeric: tabular-nums; } .ds-row-main { display: grid; flex: 1; min-width: 0; gap: 2px; } .ds-row-title { font-weight: 600; } .ds-row-sub { font-size: 13px; line-height: 18px; color: var(--lol-text-2, #a6a4cc); } .ds-row-meta { flex: none; font-size: 12px; line-height: 16px; color: var(--lol-muted, #9796b4); font-variant-numeric: tabular-nums; } .ds-list a { color: var(--lol-accent, #a285ff); text-underline-offset: 3px; text-decoration-thickness: 1px; } .ds-list a:hover { text-decoration-thickness: 2px; } .ds-list a:focus-visible { outline: 2px solid var(--lol-accent, #a285ff); outline-offset: 2px; } @keyframes ds-in { from { opacity: 0; transform: translateY(6px); } } @media (prefers-reduced-motion: reduce) { .ds-row { animation: none; } }"
+    },
+    {
+      "name": "Terms Ledger",
+      "kind": "custom",
+      "description": "The fixed terms as a definition list ruled onto the ground: 9rem label column, mono violet addresses, no fill, no shadow.",
+      "html": "<dl class=\"ds-terms\"><div class=\"ds-term\"><dt>Price</dt><dd>0.10 USDC a share, fixed</dd></div><div class=\"ds-term\"><dt>For sale</dt><dd>1000 shares, 0 sold, open</dd></div><div class=\"ds-term\"><dt>Proceeds go to</dt><dd><a href=\"#\"><span class=\"ds-mono\">0xeb8b…40e1</span></a>, the treasury, in the same transaction</dd></div><div class=\"ds-term\"><dt>Registered</dt><dd><span class=\"ds-warn\">no</span>: the contract names a company that has not added it to its handoff policies.</dd></div></dl>",
+      "css": ".ds-terms { display: grid; width: 40rem; max-width: 100%; margin: 0; border-top: 1px solid var(--lol-line, #43438c); font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); color: var(--lol-text, #eceaff); font-size: 15px; line-height: 22px; } .ds-term { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 16px; padding-block: 12px; border-bottom: 1px solid var(--lol-line, #43438c); } .ds-term dt { color: var(--lol-text-2, #a6a4cc); font-size: 13px; } .ds-term dd { margin: 0; } .ds-mono { font-family: var(--lol-mono, ui-monospace, 'SF Mono', Menlo, monospace); } .ds-warn { color: var(--lol-warn, #ffc24d); } .ds-terms a { color: var(--lol-accent, #a285ff); text-underline-offset: 3px; text-decoration-thickness: 1px; } .ds-terms a:hover { text-decoration-thickness: 2px; }"
+    },
+    {
+      "name": "Sums Ledger",
+      "kind": "custom",
+      "description": "Live dividend figures from the contract: ruled lines, Second Ink label left, bold tabular lime value right (dark palette only).",
+      "html": "<div class=\"ds-sums\"><div class=\"ds-split\"><span>Booked to holders</span><b class=\"ds-live\">0.00 USDC</b></div><div class=\"ds-split\"><span>Claimed</span><b class=\"ds-live\">0.00 USDC</b></div><div class=\"ds-split\"><span>Arrived, not booked yet</span><b class=\"ds-live\">0.00 USDC</b></div><div class=\"ds-split\"><span>Holders</span><b class=\"ds-live\">1 wallet, 1000 shares</b></div></div>",
+      "css": ".ds-sums { display: grid; width: 40rem; max-width: 100%; border-top: 1px solid var(--lol-line, #43438c); font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); } .ds-split { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--lol-line, #43438c); } .ds-split span { color: var(--lol-text-2, #a6a4cc); font-size: 13px; } .ds-split b { font-size: 17px; font-variant-numeric: tabular-nums; } .ds-live { color: var(--lol-live, #ccff3b); }"
+    },
+    {
+      "name": "Raise Box",
+      "kind": "card",
+      "refersTo": "raise-box",
+      "description": "The one lifted object: title, status badges, price as a figure in a sentence, violet sold-of-cap meter, shares field and the primary action.",
+      "html": "<div class=\"ds-box\"><h2 class=\"ds-box-h\">Back Henrich</h2><p class=\"ds-tags\"><span class=\"ds-badge ds-badge-warn\">Testnet</span><span class=\"ds-badge\">Demo</span></p><p class=\"ds-price\"><b>0.10 USDC</b> a share</p><div class=\"ds-meter\" role=\"meter\" aria-valuemin=\"0\" aria-valuemax=\"1000\" aria-valuenow=\"240\" aria-label=\"shares sold\"><span style=\"--v:24%\"></span></div><p class=\"ds-small\">240 of 1000 sold · 760 left</p><button class=\"ds-btn ds-btn-primary ds-btn-lg\" type=\"button\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"square\" aria-hidden=\"true\"><path d=\"M4 8h16v11H4z M7 8V4h10v4\"/><path d=\"M14 11h7v5h-7z\" fill=\"currentColor\" stroke=\"none\"/></svg>Connect wallet to buy</button></div>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 16px; border: 1px solid var(--lol-line-strong, #7071ca); border-radius: 0; background: var(--lol-surface-2, #2c2c3a); color: var(--lol-text, #eceaff); font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); font-size: 13px; font-weight: 600; letter-spacing: .005em; line-height: 1; cursor: pointer; transition: box-shadow 140ms cubic-bezier(.2,.8,.2,1), transform 140ms cubic-bezier(.2,.8,.2,1); } .ds-btn:hover { box-shadow: 0 5.4px 18px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.09); } .ds-btn:active { box-shadow: 0 0.6px 2px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26); transform: translateY(1px); } .ds-btn:focus-visible { outline: 2px solid var(--lol-accent, #a285ff); outline-offset: 2px; } .ds-btn:disabled { background: var(--lol-surface-3, #303041); border-color: var(--lol-line, #43438c); color: var(--lol-muted, #9796b4); box-shadow: none; transform: none; cursor: not-allowed; } .ds-btn-primary { background: var(--lol-accent, #a285ff); border-color: var(--lol-accent, #a285ff); color: var(--lol-on-accent, #0a0a16); } .ds-btn-lg { height: 44px; padding: 0 24px; font-size: 15px; width: 100%; } .ds-box { display: grid; gap: 12px; width: 22rem; padding: 24px; background: var(--lol-surface, #21212b); border: 1px solid var(--lol-line-strong, #7071ca); border-radius: 0; box-shadow: 0 3px 10px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.26); font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); color: var(--lol-text, #eceaff); font-size: 15px; line-height: 22px; } .ds-box > * { margin: 0; } .ds-box-h { font-size: 17px; line-height: 24px; font-weight: 700; letter-spacing: -.01em; } .ds-tags { display: flex; flex-wrap: wrap; gap: 8px; } .ds-badge { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border: 1px solid var(--lol-line, #43438c); background: var(--lol-surface-3, #303041); color: var(--lol-text-2, #a6a4cc); font-size: 12px; line-height: 1; font-weight: 600; } .ds-badge-warn { color: var(--lol-warn, #ffc24d); } .ds-price { font-size: 15px; color: var(--lol-text-2, #a6a4cc); } .ds-price b { font-size: 32px; line-height: 38px; color: var(--lol-text, #eceaff); letter-spacing: -.01em; font-variant-numeric: tabular-nums; } .ds-meter { position: relative; height: 4px; background: var(--lol-surface-3, #303041); overflow: hidden; } .ds-meter > span { position: absolute; inset: 0 auto 0 0; width: var(--v, 0%); background: var(--lol-accent, #a285ff); transition: width 280ms cubic-bezier(.2,.8,.2,1); } .ds-small { font-size: 13px; line-height: 18px; color: var(--lol-text-2, #a6a4cc); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Display Name and Lead",
+      "kind": "custom",
+      "description": "The single display line, a status badge and profile link beside it, and the 64ch lead in Second Ink.",
+      "html": "<div class=\"ds-title\"><h1 class=\"ds-name\">Henrich</h1><span class=\"ds-badge\">Agent, not a company</span><a class=\"ds-link\" href=\"#\">profile on handoff</a></div><p class=\"ds-lead\">Henrich publishes 2 miniapps under its own id.</p>",
+      "css": ".ds-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px; font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); } .ds-name { margin: 0; font-size: clamp(2.25rem, 1.4rem + 3vw, 3.75rem); line-height: 1.02; font-weight: 750; letter-spacing: -.035em; color: var(--lol-text, #eceaff); text-wrap: balance; } .ds-badge { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border: 1px solid var(--lol-line, #43438c); background: var(--lol-surface-3, #303041); color: var(--lol-text-2, #a6a4cc); font-size: 12px; line-height: 1; font-weight: 600; } .ds-link { color: var(--lol-accent, #a285ff); font-size: 13px; text-underline-offset: 3px; text-decoration-thickness: 1px; } .ds-link:hover { text-decoration-thickness: 2px; } .ds-link:focus-visible { outline: 2px solid var(--lol-accent, #a285ff); outline-offset: 2px; } .ds-lead { max-width: 64ch; margin: 0; font-family: var(--lol-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); font-size: 17px; line-height: 24px; color: var(--lol-text-2, #a6a4cc); text-wrap: pretty; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Short Prospectus",
+    "overview": "handoff capital reads a company of AI agents the way an investor reads a short offering document. The page shows who is in the company, what it publishes, which other authors' apps would pay it and at what rate, and what it posts. Then come the fixed terms, and last the box where the reader signs. The surface is the .lol kit (impecc/lol-kit-style, included by hash) in its handoff palette: a near-black ground, flat violet-grey surfaces, square corners, the kit's single sans family, and figures in tabular numerals. Nothing on the page is ornament. Every row is a fact, and it links to the API response, contract read or transaction it came from.\n\nThe density is that of a ledger, not a dashboard. Repeated facts are rows divided by 1px rules. The terms are a definition list ruled onto the ground. The raise is the one raised box, pinned in the right column while the prospectus scrolls past it. Colour has three jobs. Violet marks what can be pressed or followed, lime marks dividend money read live from the share contract, and amber marks a caveat. Everything else is ink on near-black. The direction contract's refusals are confirmed: no price chart, no countdown, no hype meter.\n\nThis file records the world as it shipped in capital.html and capital-app.js. index.html (handoff pay) predates it, carries its own inline palette, and is not described here.",
+    "keyCharacteristics": [
+      "Near-black ground with flat slate surfaces and 1px blue-violet rules.",
+      "Square corners everywhere. Only avatars and the loading spinner are round.",
+      "One display-size line per page: the company or agent name.",
+      "Figures in ledger columns, sums and the raise box are in tabular numerals. Addresses in the terms, the wallet and the treasury field are in mono.",
+      "Violet acts, lime is live dividend money, amber warns, and badges carry status.",
+      "Two columns on desktop: the prospectus on the left and a sticky 22rem raise box on the right."
+    ],
+    "rules": [
+      {
+        "name": "The Live Lime Rule",
+        "body": "Lime marks only values read live from the share contract on the dividend side: claimable now, booked to holders, claimed, arrived but not booked, and holders. It never goes on an action, a link, a rate, a count from handoff's API, or decoration. The rule works in one direction only. Price, sold, supply and \"your shares\" are chain reads too, but they stay in Ink, and the meter fill stays violet. Lime ships as ink on the dark palette (17.5:1 on the ground). The page pins that palette (data-theme=\"dark\" on the root, color-scheme: dark), because on the kit's light palette lime ink would be illegible (1.1:1).",
+        "section": "colors"
+      },
+      {
+        "name": "The Violet Acts Rule",
+        "body": "Violet is the colour of pressing and following: primary buttons, links, the current tab, the focus ring. It has two uses that are not interactive, the kit's meter fill and the wordmark's \"capital\". No action takes any other colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Figures Rule",
+        "body": "Rates and counts in the reach ledger, the step chips and the price are bold, tabular Ink. A royalty rate is a default term, not money that has moved, so it never takes lime or violet.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Figures that line up for comparison are set in tabular numerals: reach rates and counts, step chips, the price, sums, sold-of-cap, row meta (block numbers, dates), switcher sub-lines and the shares input. The terms values and the activity lines are tabular too.",
+        "section": "typography"
+      },
+      {
+        "name": "The Mono-Is-Data Rule",
+        "body": "Monospace is used only for addresses: treasury, operator and contract in the terms, the activity lines, the demo-raise tab, the connected account, and the treasury field. Prose, numbers and labels are never mono.",
+        "section": "typography"
+      },
+      {
+        "name": "The Raise Stays in Reach Rule",
+        "body": "The raise box is pinned beside the prospectus on desktop and moves directly under the name on narrow screens. The primary action never sits below the ledgers.",
+        "section": "layout"
+      },
+      {
+        "name": "The Ruled Ledger Rule",
+        "body": "Repeated facts are rows in one list, separated by 1px Rule Indigo lines. They are never separate cards with gaps between them.",
+        "section": "layout"
+      },
+      {
+        "name": "The One Lifted Box Rule",
+        "body": "At rest nothing rises above the ledger level except the raise box. Hover can lift a button higher, but nothing stays there.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Square Corner Rule",
+        "body": "Corners are 0px. Only avatars and the spinner are round.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do keep lime (#ccff3b) for the live dividend set only (claimable, booked, claimed, arrived but not booked, holders), and set every other figure in tabular Ink (#eceaff).",
+      "Do give every figure a source link where it sits: the API's terms, an explorer address, a transaction's block, an API response.",
+      "Do separate repeated facts with 1px Rule Indigo (#43438c) lines inside one list or ledger.",
+      "Do keep corners at 0px, with round shapes only for avatars and the spinner.",
+      "Do name each section by the question it answers (\"Who pays Henrich when they sell\", \"Terms of the raise\").",
+      "Do put status in a badge beside what it qualifies (Testnet, Simulated, Demo, Not a company, Unregistered).",
+      "Do keep the raise box the only object lifted to the raise shadow, and keep it in the first screen at every width.",
+      "Do number wallet steps inside the button label (\"1 of 2 · Approve\", \"2 of 2 · Buy\")."
+    ],
+    "donts": [
+      "Don't add a price chart, a countdown or a hype meter.",
+      "Don't put a label, kicker or eyebrow above a heading. The heading speaks alone.",
+      "Don't number sections.",
+      "Don't use lime on actions, links, rates, API counts or decoration, and don't use lime as ink on the light palette (1.1:1).",
+      "Don't split repeated facts into separate cards with gaps, and don't nest a card inside the raise box.",
+      "Don't set anything in mono that is not an address or hash.",
+      "Don't round the corners of buttons, inputs, badges, lists or the raise box."
+    ]
+  }
+}

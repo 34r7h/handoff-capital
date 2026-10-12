@@ -31,6 +31,7 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const eth = () => window.ethereum;
 const pct = (bps) => `${bps % 100 ? (bps / 100).toFixed(2).replace(/0$/, '') : bps / 100}%`;
+const mono = (a) => `<span class="lk-mono">${esc(shortAddress(a))}</span>`;
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const usd = (atomic) => `${formatAtomic(atomic, 6)} USDC`;
 const appUrl = (ref) => `${SITE}/app/${ref.split('/').map(encodeURIComponent).join('/')}`;
@@ -446,7 +447,7 @@ function renderSwitcher() {
   const tab = (id, sub) => `<button class="lk-tab cap-tab" type="button" data-pick="${esc(id)}"${id === cur && !state.sel?.contract ? ' aria-current="true"' : ''}>${esc(id)}<span class="cap-tab-sub lk-num">${esc(sub)}</span></button>`;
   const cos = state.companies.map((c) => tab(c.company_id, `${c.member_count} member${c.member_count === 1 ? '' : 's'}`)).join('');
   const leaders = state.leaders.filter((l) => !state.companies.some((c) => c.company_id === l.author)).map((l) => tab(l.author, `paid by ${l.apps}`)).join('');
-  const raises = KNOWN.map((k, i) => `<button class="lk-tab cap-tab" type="button" data-demo="${i}"${sameAddress(state.sel?.contract, k.address) ? ' aria-current="true"' : ''}>${esc(shortAddress(k.address))}<span class="cap-tab-sub">demo · ${esc(CHAINS[k.chain].label)}</span></button>`).join('');
+  const raises = KNOWN.map((k, i) => `<button class="lk-tab cap-tab" type="button" data-demo="${i}"${sameAddress(state.sel?.contract, k.address) ? ' aria-current="true"' : ''}><span class="lk-mono">${esc(shortAddress(k.address))}</span><span class="cap-tab-sub">demo · ${esc(CHAINS[k.chain].label)}</span></button>`).join('');
   return `<div class="cap-switch" role="navigation" aria-label="Raises, companies and authors">
     <div class="cap-group"><span class="cap-group-name">Raises</span><div class="lk-tabs cap-tabs">${raises}</div></div>
     <div class="cap-group"><span class="cap-group-name">Companies</span><div class="lk-tabs cap-tabs">${cos}</div></div>
@@ -576,11 +577,11 @@ function renderActivity() {
   const logs = (r.logs || []).filter((l) => l.kind !== 'transfer' || l.from !== ZERO || !buys.has(l.tx));
   const line = (l) => {
     const what = {
-      bought: () => `${esc(shortAddress(l.buyer))} bought ${l.shares} for ${usd(l.cost)}`,
+      bought: () => `${mono(l.buyer)} bought ${l.shares} for ${usd(l.cost)}`,
       revenue: () => `${usd(l.amount)} booked to holders${l.ref ? ` · ${esc(l.ref)}` : ''}`,
-      claimed: () => `${esc(shortAddress(l.holder))} claimed ${usd(l.amount)}`,
+      claimed: () => `${mono(l.holder)} claimed ${usd(l.amount)}`,
       closed: () => `raise closed at ${l.sold} sold`,
-      transfer: () => (l.from === ZERO ? `${l.value} founding shares to ${esc(shortAddress(l.to))}` : `${esc(shortAddress(l.from))} sent ${l.value} to ${esc(shortAddress(l.to))}`),
+      transfer: () => (l.from === ZERO ? `${l.value} founding shares to ${mono(l.to)}` : `${mono(l.from)} sent ${l.value} to ${mono(l.to)}`),
     }[l.kind]();
     return `<li class="lk-row"><span class="lk-row-main"><span>${what}</span></span><span class="lk-row-meta">${link(txUrl(c, l.tx), `block ${l.block}`)}</span></li>`;
   };

@@ -297,7 +297,7 @@ The scripts are in `xmbl/`, which has its own `package.json` pinned to `@xmbl/id
 | `lol-kit-style.css` | a development copy of `impecc/lol-kit-style`; the store build links the published one by hash |
 | `contracts/src/AgentShares.sol` | the share and dividend contract |
 | `contracts/test/AgentShares.t.sol` | its Foundry tests |
-| `PRODUCT.md`, `.impeccable/` | handoff capital's product brief, direction contract and review captures |
+| `PRODUCT.md`, `DESIGN.md`, `.impeccable/` | handoff capital's product brief, design system, direction contract and review captures |
 | `index.html` | handoff pay's page and its styles (light and dark follow `prefers-color-scheme`; works at phone width) |
 | `app.js` | UI, wallet connection, payment flow |
 | `api.js` | read-only handoff API client, JSON-RPC client with backoff, per-rail Transfer-log scanner, receipt polling |
