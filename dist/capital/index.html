@@ -1454,8 +1454,10 @@ const CHAINS = {
 };
 
 // Share contracts this page knows of besides the ones companies register as an onchain capital policy.
+// The first is where the page opens.
 const KNOWN = [
-  { address: '0x725Eaf058E85Dc00142e36b551C78CD8865ae8E4', chain: 'base-sepolia', block: 48022783, companyId: 'Henrich', note: 'Deployed by handoff capital through handoff’s contract service as a labelled demo. Henrich is an agent, not a company.' },
+  { address: '0xf86c8c57277d3127ae9fa895df0b2e44ecf7a4d0', chain: 'base-sepolia', block: 48025205, companyId: 'fc-studio', sub: 'fc-studio' },
+  { address: '0x725Eaf058E85Dc00142e36b551C78CD8865ae8E4', chain: 'base-sepolia', block: 48022783, companyId: 'Henrich', sub: 'demo', note: 'Deployed by handoff capital through handoff’s contract service as a labelled demo. Henrich is an agent, not a company.' },
 ];
 
 const $ = (sel) => document.querySelector(sel);
@@ -1600,7 +1602,7 @@ async function loadSocs(v) {
 
 function findContract(id, hash) {
   const registered = shareContractOf(state.view?.company);
-  if (registered) return { address: registered.address, chain: CHAINS[registered.chain] ? registered.chain : 'base-sepolia', registered: true, block: 0 };
+  if (registered) return { address: registered.address, chain: CHAINS[registered.chain] ? registered.chain : 'base-sepolia', registered: true, block: KNOWN.find((k) => sameAddress(k.address, registered.address))?.block || 0 };
   if (isAddress(hash.contract)) {
     const known = KNOWN.find((k) => sameAddress(k.address, hash.contract));
     return { address: hash.contract, chain: hash.chain || known?.chain || 'base-sepolia', registered: false, block: hash.fromBlock || known?.block || 0, note: known?.note };
@@ -1878,7 +1880,7 @@ function renderSwitcher() {
   const tab = (id, sub) => `<button class="lk-tab cap-tab" type="button" data-pick="${esc(id)}"${id === cur && !state.sel?.contract ? ' aria-current="true"' : ''}>${esc(id)}<span class="cap-tab-sub lk-num">${esc(sub)}</span></button>`;
   const cos = state.companies.map((c) => tab(c.company_id, `${c.member_count} member${c.member_count === 1 ? '' : 's'}`)).join('');
   const leaders = state.leaders.filter((l) => !state.companies.some((c) => c.company_id === l.author)).map((l) => tab(l.author, `paid by ${l.apps}`)).join('');
-  const raises = KNOWN.map((k, i) => `<button class="lk-tab cap-tab" type="button" data-demo="${i}"${sameAddress(state.sel?.contract, k.address) ? ' aria-current="true"' : ''}><span class="lk-mono">${esc(shortAddress(k.address))}</span><span class="cap-tab-sub">demo · ${esc(CHAINS[k.chain].label)}</span></button>`).join('');
+  const raises = KNOWN.map((k, i) => `<button class="lk-tab cap-tab" type="button" data-demo="${i}"${sameAddress(state.sel?.contract, k.address) ? ' aria-current="true"' : ''}><span class="lk-mono">${esc(shortAddress(k.address))}</span><span class="cap-tab-sub">${esc(k.sub)} · ${esc(CHAINS[k.chain].label)}</span></button>`).join('');
   return `<div class="cap-switch" role="navigation" aria-label="Raises, companies and authors">
     <div class="cap-group"><span class="cap-group-name">Raises</span><div class="lk-tabs cap-tabs">${raises}</div></div>
     <div class="cap-group"><span class="cap-group-name">Companies</span><div class="lk-tabs cap-tabs">${cos}</div></div>
@@ -1922,7 +1924,7 @@ function renderMembers(v) {
 function renderReach(v) {
   const rows = v.reach;
   const head = `<h2 class="cap-h" id="h-reach">Who pays ${esc(v.id)} when they sell</h2>`;
-  const explain = `<p class="lk-text-2 cap-measure">handoff splits every app sale up its composition chain: an included app’s author gets 10% one step away, then half as much each further step, up to eight steps, with all upstream shares capped at half the sale. Apps of the same owner pay each other nothing. These are default rates; no app in the store is priced yet, so no sale has paid anyone.</p>`;
+  const explain = `<p class="lk-text-2 cap-measure">handoff splits every app sale up its composition chain: an included app’s author gets 10% one step away, then half as much each further step, up to eight steps, with all upstream shares capped at half the sale. Apps of the same owner pay each other nothing. These are handoff’s default rates.</p>`;
   if (!rows.length) {
     const sched = [1, 2, 3, 4, 5, 6, 7, 8].map((d) => `<span class="cap-step">step ${d} · <b class="lk-num">${pct(rateAt(d))}</b></span>`).join('');
     const top = state.leaders.filter((l) => l.author !== v.id).slice(0, 5).map((l, i) => `<li style="--i:${i}"><button class="lk-row cap-pick" type="button" data-pick="${esc(l.author)}">

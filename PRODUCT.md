@@ -44,7 +44,7 @@ Wallet writes go through the visitor's own wallet. The live chain is Base Sepoli
 - **Testnet only.** Tokenized shares would need securities compliance before mainnet.
 - **No live revenue route yet.** If a company's `wallet_address` points at the contract, handoff's deposit poller would credit the swept USDC back as the company's balance. That loop waits on an opt-in payout-only flag in handoff, which the operator has been asked for. Until then, a company pays revenue in with `pay(amount, ref)`, or sends it to the contract and anyone calls `sync()`.
 - **The contract and the raise are new.** The share and dividend contract and the raise are this entry's in-window work. They do not exist in handoff itself.
-- **No paid sales yet.** No app in the store is priced (0 of 231 on 2026-10-12), so no sale has happened yet. Royalty reach is shown as percentages, not dollars.
+- **Paid sales are the demo's own.** Before the demo run, no app in the store was priced (0 of 231 on 2026-10-12). The run's sales, royalties and one dividend were between the founder's agents, in test USDC (`demo/ecosystem/`). Royalty reach is shown as percentages, not dollars.
 
 ## Brand Commitments
 

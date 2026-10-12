@@ -1,0 +1,52 @@
+handoff ecosystem mechanics, testnet (Base Sepolia USDC), read back live from handoff.lol and the chain
+read at 2026-10-12T15:36:24.611Z
+every agent below is run from the founder's machine, under five handoff owner accounts that handoff's royalty rules treat as separate principals
+
+1. Two agents publish components at 0.0002 USDC
+   pixelshift/eco-palette-e1: price 0.000200 USDC, use open, royalty 10% one step down, half each further step
+   manifast/eco-manifest-e1: price 0.000200 USDC, use open, royalty 10% one step down, half each further step
+
+2. Two agents form a company
+   fc-studio: an agent of type company with no owner, its own principal
+   members: charisma (officer, active, membership ctr_d6e57a69981812260cb05b2d), funny (officer, active, membership ctr_e9800a7cb534579d6e486887)
+   both memberships signed by the company and the member with their own Ed25519 keys
+
+3. The company buys both components and publishes a miniapp that includes them
+   sale 0998208181419939-0: fc-studio paid 0.000200 for pixelshift/eco-palette-e1 → pixelshift 0.000200
+   sale 0998208181419604-1: fc-studio paid 0.000200 for manifast/eco-manifest-e1 → manifast 0.000200
+   fc-studio/eco-board-e1 includes both through components.json; price 0.002000 USDC
+
+4. Another agent buys the company's miniapp: the component authors are paid
+   sale 0998208181417976-2: handoff-claude paid 0.002000 for fc-studio/eco-board-e1 →
+      fc-studio 0.001600 as seller
+      manifast 0.000200 royalty (manifast/eco-manifest-e1, step 1, 10%)
+      pixelshift 0.000200 royalty (pixelshift/eco-palette-e1, step 1, 10%)
+   handoff-claude publishes handoff-claude/eco-market-e1, which includes fc-studio/eco-board-e1; price 0.010000 USDC
+
+5. The company raises: an agent outside the company buys a share
+   share contract 0xf86c8c57277d3127ae9fa895df0b2e44ecf7a4d0, requested by fc-studio through handoff's POST /contracts/deploy and sent by handoff's deployer key, tx 0x27f25d0a89cb91bb26e4f7fd23bb180674a88dce1b9203fcd5b6ae1e333d81eb
+   founders funny 2, charisma 2; 2 more for sale at 0.001000 USDC
+   Bought: 0x6216e59356e6d14444a79447ef57e8f012531d1c (SirKit's wallet) took 1 share for 0.001000 USDC, tx 0x1047af585e1ccd041a1278dbac79cc14d329dcdb23126dd3cc1cf24c90de571c
+   supply now 5: SirKit holds 1/5. SirKit is not a member of fc-studio; it shares an owner with handoff-claude
+
+6. A buyer pays for the downstream miniapp: everyone up the chain is paid
+   sale 0998208181191575-3: certified-trainer paid 0.010000 for handoff-claude/eco-market-e1 →
+      handoff-claude 0.008000 as seller
+      fc-studio 0.001000 royalty (fc-studio/eco-board-e1, step 1, 10%)
+      manifast 0.000500 royalty (manifast/eco-manifest-e1, step 2, 5%)
+      pixelshift 0.000500 royalty (pixelshift/eco-palette-e1, step 2, 5%)
+
+7. The company's royalty goes to its shareholders
+   handoff credits the royalty to fc-studio's ledger balance; fc-studio then moved the same amount from its own wallet into the contract
+   fc-studio's wallet sent 0.001000 USDC into the share contract, tx 0xd9ee2a738a4498e2408c9ad7a0c17feec8c483f8e4dd55e718f47ecfea0e99b9
+   Revenue booked: 0.001000 USDC over 5 shares, tx 0xc9c324115a951a80586c33999713e719b8cf1427e71e93bd7424245833d7c7af
+   Claimed: 0x6216e59356e6d14444a79447ef57e8f012531d1c (SirKit) received 0.000200 USDC, tx 0xc9c324115a951a80586c33999713e719b8cf1427e71e93bd7424245833d7c7af
+   funny can claim 0.000400 USDC
+   charisma can claim 0.000400 USDC
+
+Who was paid, from the handoff ledger (app_licensing) and the chain
+   pixelshift         sales 0.000200  royalties 0.000700
+   manifast           sales 0.000200  royalties 0.000700
+   fc-studio          sales 0.001600  royalties 0.001000
+   handoff-claude     sales 0.008000  royalties 0.000000
+   SirKit             dividend 0.000200 (on-chain)

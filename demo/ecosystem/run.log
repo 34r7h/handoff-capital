@@ -1,0 +1,42 @@
+2026-10-12T15:21:46.912Z  balances (before): pixelshift 3.218202 · manifast 2.219022 · fc-studio — · funny 2.218521 · charisma 2.218313 · handoff-claude 22.245205 · certified-trainer 22.218518 · notben_agent 3.218202
+2026-10-12T15:21:47.182Z  pixelshift published pixelshift/eco-palette-e1  hash f7498fea3a188ec76c5de9999aefd205de857eb6f5042399
+2026-10-12T15:21:47.617Z  pixelshift priced pixelshift/eco-palette-e1 at 0.000200 USDC, use open, royalty 10% one step down, half each further step
+2026-10-12T15:21:47.957Z  manifast published manifast/eco-manifest-e1  hash 8708384511aef2b9a6db2d0138807a4efa1a99569eb4a18a
+2026-10-12T15:21:48.160Z  manifast priced manifast/eco-manifest-e1 at 0.000200 USDC, use open, royalty 10% one step down, half each further step
+2026-10-12T15:21:53.223Z  company fc-studio founded (an agent of type company, no owner, its own principal); wallet 0x5627c4D60Db1fAA62A166bb8dAde19Ef9C37778b
+2026-10-12T15:21:55.864Z  funny joined fc-studio as officer: membership ctr_e9800a7cb534579d6e486887 signed by both with their own Ed25519 keys, active true
+2026-10-12T15:21:57.783Z  charisma joined fc-studio as officer: membership ctr_d6e57a69981812260cb05b2d signed by both with their own Ed25519 keys, active true
+2026-10-12T15:21:58.028Z  fc-studio: 2 live members; treasury balance -0.010000 USDC
+2026-10-12T15:22:22.433Z  funny sent 0.02 USDC from its wallet to fc-studio's wallet 0x5627c4D60Db1fAA62A166bb8dAde19Ef9C37778b (gasless EIP-3009): tx 0x38b01698995111b34f7fa829409c9b412f63525c88eb690863bc309997f7fc0b
+2026-10-12T15:22:23.478Z  charisma sent 0.02 USDC from its wallet to fc-studio's wallet 0x5627c4D60Db1fAA62A166bb8dAde19Ef9C37778b (gasless EIP-3009): tx 0x3d2fc77c4b27aada7ccf44a972b5d5ba64c15277978f8933ea5e584f89bd01c7
+2026-10-12T15:22:29.066Z  funny sent 0.02 USDC from its wallet to fc-studio's wallet 0x5627c4D60Db1fAA62A166bb8dAde19Ef9C37778b (gasless EIP-3009): tx 0xddc6387a6e9a3830c93da982a92dbf8be590be38acd947b78bc165ea2ff2448b
+2026-10-12T15:22:30.553Z  charisma sent 0.02 USDC from its wallet to fc-studio's wallet 0x5627c4D60Db1fAA62A166bb8dAde19Ef9C37778b (gasless EIP-3009): tx 0xf800be1c774ce90c18359f3e97d01ebf7652b6bf613ed46e44c722f62a1ff45b
+2026-10-12T15:22:59.354Z  fc-studio ledger: handoff deposit bridge credited what reached its wallet: 1.000000 faucet registration grant + 0.080000 from founders (each founder sent 0.02 twice: the funding step ran twice) - 0.010000 registration fee = balance 1.070000
+2026-10-12T15:23:00.194Z  fc-studio bought pixelshift/eco-palette-e1 for 0.000200 USDC, sale 0998208181419939-0: pixelshift 0.000200 (seller)
+2026-10-12T15:23:00.526Z  fc-studio bought manifast/eco-manifest-e1 for 0.000200 USDC, sale 0998208181419604-1: manifast 0.000200 (seller)
+2026-10-12T15:23:00.871Z  fc-studio published fc-studio/eco-board-e1 including pixelshift/eco-palette-e1 + manifast/eco-manifest-e1  hash df9520fd26f4c7e80a9603940f9c22f30d0aadace500d10e
+2026-10-12T15:23:01.847Z  fc-studio priced fc-studio/eco-board-e1 at 0.002000 USDC, use open, royalty 10% one step down, half each further step
+2026-10-12T15:23:02.170Z  handoff-claude bought fc-studio/eco-board-e1 for 0.002000 USDC, sale 0998208181417976-2: fc-studio 0.001600 (seller) · manifast 0.000200 (royalty, manifast/eco-manifest-e1 step 1, 10%) · pixelshift 0.000200 (royalty, pixelshift/eco-palette-e1 step 1, 10%)
+2026-10-12T15:23:02.683Z  handoff-claude published handoff-claude/eco-market-e1 including fc-studio/eco-board-e1  hash 468cc37dca03929eeb063874144ad6d7fc2b6246a2c9f409
+2026-10-12T15:23:03.024Z  handoff-claude priced handoff-claude/eco-market-e1 at 0.010000 USDC, use open, royalty 10% one step down, half each further step
+2026-10-12T15:23:03.024Z  terms of handoff-claude/eco-market-e1 now preview a 0.01 USDC sale: fc-studio 0.001000 (step 1) · manifast 0.000500 (step 2) · pixelshift 0.000500 (step 2) · seller 0.008000
+2026-10-12T15:24:56.196Z  compiled AgentShares with handoff's solc 0.8.36+commit.8a079791.Emscripten.clang; constructor: FC Studio shares (FCS), price 0.001 USDC a share, 2 for sale, founders funny 0x8aC2A37da3Da44a2A0Ad3376B67F7BE48577F8C0 and charisma 0xF92303B3FEF13D4334907cF9D0b09260F38a6ed3 with 2 each, operator and treasury fc-studio's wallet 0x5627c4D60Db1fAA62A166bb8dAde19Ef9C37778b
+2026-10-12T15:24:57.496Z  fc-studio deployed its share contract through POST /contracts/deploy: 0xf86c8c57277d3127ae9fa895df0b2e44ecf7a4d0 block 48025205 tx 0x27f25d0a89cb91bb26e4f7fd23bb180674a88dce1b9203fcd5b6ae1e333d81eb
+2026-10-12T15:26:26.948Z  fc-studio registered 0xf86c8c57277d3127ae9fa895df0b2e44ecf7a4d0 as its capital policy on handoff (kind onchain, scope capital, base-sepolia)
+2026-10-12T15:26:29.413Z  share contract state: supply 4 · sold 0/2 · price 0.001000 · revenue 0.000000 · claimed 0.000000 · unbooked 0.000000
+2026-10-12T15:26:37.851Z  SirKit (wallet 0x6216e59356E6D14444a79447eF57E8f012531D1C, owner usr_fb2446eb53) approved the share contract for 0.001 USDC: tx 0xe732430b7ab2a72ab88108948d677fa9b4ec6b9c7ea6fa75cee4d0eb45bb28ae block 48025255
+2026-10-12T15:26:41.276Z  SirKit bought 1 share of fc-studio for 0.001 USDC: tx 0x1047af585e1ccd041a1278dbac79cc14d329dcdb23126dd3cc1cf24c90de571c block 48025256; its USDC 43.206414 → 43.205414; it now holds 1 of the shares
+2026-10-12T15:26:43.417Z  share contract state: supply 5 · sold 1/2 · price 0.001000 · revenue 0.000000 · claimed 0.000000 · unbooked 0.000000
+2026-10-12T15:26:48.567Z  certified-trainer bought handoff-claude/eco-market-e1 for 0.010000 USDC, sale 0998208181191575-3: handoff-claude 0.008000 (seller) · fc-studio 0.001000 (royalty, fc-studio/eco-board-e1 step 1, 10%) · manifast 0.000500 (royalty, manifast/eco-manifest-e1 step 2, 5%) · pixelshift 0.000500 (royalty, pixelshift/eco-palette-e1 step 2, 5%)
+2026-10-12T15:27:13.874Z  fc-studio paid its 0.001 USDC royalty from sale 0998208181191575-3 into its share contract 0xf86c8c57277d3127ae9fa895df0b2e44ecf7a4d0 from its wallet (gasless EIP-3009 through POST /wallet/spend): tx 0xd9ee2a738a4498e2408c9ad7a0c17feec8c483f8e4dd55e718f47ecfea0e99b9 block 48025273
+2026-10-12T15:27:16.622Z  share contract USDC balance 0.001000; state: supply 5 · sold 1/2 · revenue 0.000000 · claimed 0.000000 · unbooked 0.001000
+2026-10-12T15:27:20.162Z  claimable now (pro rata over 5 shares): funny 0.000400 · charisma 0.000400 · SirKit 0.000200
+2026-10-12T15:27:27.448Z  SirKit claimed its dividend: tx 0xc9c324115a951a80586c33999713e719b8cf1427e71e93bd7424245833d7c7af block 48025280; its USDC 43.205414 → 43.205414 (+0.000000); contract events 0x40868aec, 0xd8138f8a
+2026-10-12T15:27:31.968Z  state: supply 5 · sold 1/2 · revenue 0.001000 · claimed 0.000200 · unbooked 0.000000; still claimable: funny 0.000400 · charisma 0.000400 · SirKit 0.000000
+2026-10-12T15:27:47.580Z  correction: the read right after the claim hit a lagging RPC node; at block 48025279 SirKit held 43.205414 USDC and at block 48025280 (the claim) 43.205614, +0.000200. The claim tx carries Revenue(1000), USDC Transfer(contract → SirKit, 200) and Claimed(SirKit, 200).
+2026-10-12T15:27:52.972Z  balances (after): pixelshift 3.218802 · manifast 2.219804 · fc-studio 1.071800 · funny 2.218521 · charisma 2.218313 · handoff-claude 22.250379 · certified-trainer 22.208518 · notben_agent 3.218202
+2026-10-12T15:27:53.256Z  app_licensing pixelshift: sold 0.000200 from fc-studio · royalties 0.000500 on handoff-claude/eco-market-e1 (via pixelshift/eco-palette-e1, step 2), 0.000200 on fc-studio/eco-board-e1 (via pixelshift/eco-palette-e1, step 1) · spent 0.000000
+2026-10-12T15:27:53.546Z  app_licensing manifast: sold 0.000200 from fc-studio · royalties 0.000500 on handoff-claude/eco-market-e1 (via manifast/eco-manifest-e1, step 2), 0.000200 on fc-studio/eco-board-e1 (via manifast/eco-manifest-e1, step 1) · spent 0.000000
+2026-10-12T15:27:53.826Z  app_licensing fc-studio: sold 0.001600 from handoff-claude · royalties 0.001000 on handoff-claude/eco-market-e1 (via fc-studio/eco-board-e1, step 1) · spent 0.000400
+2026-10-12T15:27:54.406Z  app_licensing handoff-claude: sold 0.008000 from certified-trainer · royalties none · spent 0.032000
+2026-10-12T15:27:54.727Z  app_licensing certified-trainer: sold none · royalties none · spent 0.010000
