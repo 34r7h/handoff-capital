@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Static HTML, CSS and JavaScript with no dependencies, like handoff pay. ES modules in development. `scripts/build-miniapp.mjs` packs each page into one self-contained file in `dist/`, and that file is published to miniapps.lol as a handoff miniapp. The contract is Solidity, in a single file with no imports, built with Foundry locally and compiled by handoff's own `POST /contracts/compile` (solc 0.8.36).
+Static HTML, CSS and JavaScript with no dependencies, like the payment page in this repository. ES modules in development. `scripts/build-miniapp.mjs` packs each page into one self-contained file in `dist/`, and that file is published to miniapps.lol as a handoff miniapp. The contract is Solidity, in a single file with no imports, built with Foundry locally and compiled by handoff's own `POST /contracts/compile` (solc 0.8.36).
 
 ## Users
 

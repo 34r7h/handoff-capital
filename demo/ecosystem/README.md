@@ -1,19 +1,8 @@
 # Ecosystem mechanics on handoff testnet
 
-One run on handoff.lol and Base Sepolia, 2026-10-12, 15:21–15:28 UTC, with amounts of 0.0002 to 0.01 test USDC. It shows the whole loop in one pass:
+One run on handoff.lol and Base Sepolia on 2026-10-12, from 15:21 to 15:28 UTC and with amounts of 0.0002 to 0.01 test USDC, shows the whole loop in one pass. Two agents publish components at 0.0002 USDC, two agents form a company, and the company buys both components and publishes an app that includes them. A third agent buys the company's app, which pays the component authors, and the company deploys a share contract in which an agent outside the company buys a share. A buyer then pays for the downstream app, which pays everyone up the chain, and the company pays an amount equal to its royalty into the share contract, from which the shareholder claims its part.
 
-1. Two agents publish components at 0.0002 USDC.
-2. Two agents form a company.
-3. The company buys both components and publishes an app that includes them.
-4. A third agent buys the company's app, so the component authors are paid.
-5. The company deploys a share contract, and an agent outside the company buys a share.
-6. A buyer pays for the downstream app, so everyone up the chain is paid.
-7. The company pays an amount equal to its royalty into the share contract, and the shareholder claims its part.
-
-- `proof.txt` is the result, read back live from handoff and the chain by `verify.mjs`.
-- `handoff-mechanics-proof.mp4` is the same text as a 47-second video.
-- `handoff-capital-demo.mp4` (147 seconds) is one continuous browser session, recorded on 2026-10-13 from 04:48 UTC, with the cursor and each click shown. It opens the components and apps on miniapps.lol, then opens handoff capital in the store on FC Studio's raise: its members, who pays the company, the terms and the holders. It follows the [live steps](#recorded-live-2026-10-13) to their transactions on Blockscout, then returns to handoff capital for the totals. Page loads play at 5x. A headless browser has no address bar, so the bar and the captions are drawn in afterwards from the recorder's log. `walk.cjs` records; `render.py`, then `cards.py`, assemble the video.
-- `run.log` is the log written as each step ran.
+`proof.txt` is the result, read back live from handoff and the chain by `verify.mjs`, `handoff-mechanics-proof.mp4` shows the same text as a 47-second video, and `run.log` is the log written as each step ran. `handoff-capital-demo.mp4` (147 seconds) is one continuous browser session recorded on 2026-10-13 from 04:48 UTC with the cursor and each click shown. It opens the components and apps on miniapps.lol, then handoff capital in the store on FC Studio's raise with its members, who pays the company, the terms and the holders, follows the [live steps](#recorded-live-2026-10-13) to their transactions on Blockscout, and returns to handoff capital for the totals. Page loads play at 5x speed, and because a headless browser has no address bar, the bar and the captions are drawn in afterwards from the recorder's log. `walk.cjs` records the session, and `render.py` followed by `cards.py` assemble the video.
 
 Every agent in the run is operated from the founder's machine. The agents sit under five handoff owner accounts, which handoff's royalty rules treat as separate principals. SirKit, the shareholder, shares an owner with handoff-claude, but neither is a member of fc-studio. notben_agent, the backer in the live recording, is under a sixth.
 
@@ -60,13 +49,15 @@ With no shares left, fc-studio closed the raise at 01:05:28 UTC so the page stop
 
 Before recording, SirKit sent notben_agent 0.0004 test ETH for gas ([`0x7832ca73…`](https://sepolia.basescan.org/tx/0x7832ca73334ff3d16e234545d54fcf094acb40d649dde30bd544bf9975fb7f5a)), and notben_agent approved the contract for 0.001 USDC ([`0x07d634bc…`](https://sepolia.basescan.org/tx/0x07d634bce8a9236a899042b7e75e7f9fd76604f4122ca5fd08941657657b38e1)). `live.mjs` is the recorder that ran these steps.
 
-## Limits, said plainly
+## Limits
 
-- **The royalty reached the contract by hand.** handoff credits royalties to the company's balance on its ledger. fc-studio then paid an equal amount from its own on-chain wallet, and `wallet/spend` does not debit that ledger. handoff has no route yet that pays a company's earnings into its share contract.
-- **The founders funded fc-studio.** funny and charisma each sent 0.04 USDC to fc-studio's wallet. The fund step ran twice, so each sent 0.02 two times. The faucet's 1 USDC registration grant also landed there.
-- **The handoff routes are not new.** The contract, wallet and royalty routes used here are handoff's existing ones. Companies and the downstream royalty model are from the hackathon window; `AgentShares` and this run are this entry's work.
-- **Not everything can be re-run by others.** `verify.mjs` signs the licensing reads as each agent, so it needs those agents' keys. Anyone can check the on-chain half on Basescan.
-- **Balance changes include other activity.** The agents' handoff balances also moved for publishing and other activity in the same minutes. The licensing ledger and the chain logs above are the record for this run.
+The royalty reached the contract by hand. handoff credits royalties to the company's balance on its ledger, fc-studio then paid an equal amount from its own on-chain wallet, and `wallet/spend` does not debit that ledger, because handoff has no route yet that pays a company's earnings into its share contract.
+
+The founders funded fc-studio. funny and charisma each sent 0.04 USDC to fc-studio's wallet, in two transfers of 0.02 each because the funding step ran twice, and the faucet's 1 USDC registration grant also landed there.
+
+The handoff routes used here are not new. The contract, wallet and royalty routes are handoff's existing ones, companies and the downstream royalty model come from the hackathon window, and `AgentShares` and this run are this entry's work.
+
+Not everything can be re-run by others, because `verify.mjs` signs the licensing reads as each agent and so needs those agents' keys, although anyone can check the on-chain half on Basescan. The agents' handoff balances also moved for publishing and other activity in the same minutes, so the licensing ledger and the chain logs above, rather than balance changes, are the record for this run.
 
 ## Re-run
 

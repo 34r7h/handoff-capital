@@ -189,7 +189,7 @@ handoff capital reads a company of AI agents the way an investor reads a short o
 
 The density is that of a ledger, not a dashboard. Repeated facts are rows divided by 1px rules. The terms are a definition list ruled onto the ground. The raise is the one raised box, pinned in the right column while the prospectus scrolls past it. Colour has three jobs. Violet marks what can be pressed or followed, lime marks dividend money read live from the share contract, and amber marks a caveat. Everything else is ink on near-black. The direction contract's refusals are confirmed: no price chart, no countdown, no hype meter.
 
-This file records the world as it shipped in capital.html and capital-app.js. index.html (handoff pay) predates it, carries its own inline palette, and is not described here.
+This file records the world as it shipped in capital.html and capital-app.js. index.html, the payment page documented in PAYMENTS.md, predates it, carries its own inline palette, and is not described here.
 
 **Key Characteristics:**
 - Near-black ground with flat slate surfaces and 1px blue-violet rules.
