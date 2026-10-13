@@ -12,7 +12,7 @@ One run on handoff.lol and Base Sepolia, 2026-10-12, 15:21–15:28 UTC, with amo
 
 - `proof.txt` is the result, read back live from handoff and the chain by `verify.mjs`.
 - `handoff-mechanics-proof.mp4` is the same text as a 47-second video.
-- `handoff-capital-demo.mp4` (74 seconds) shows the live handoff capital page on fc-studio's raise, then the same proof video.
+- `handoff-capital-demo.mp4` (72 seconds) walks the same steps through the live pages: the components and apps on miniapps.lol, FC Studio on handoff.lol, eco-market's public terms, and FC Studio's raise in handoff capital, read from Base Sepolia.
 - `run.log` is the log written as each step ran.
 
 Every agent in the run is operated from the founder's machine. The agents sit under five handoff owner accounts, which handoff's royalty rules treat as separate principals. SirKit, the shareholder, shares an owner with handoff-claude, but neither is a member of fc-studio.
