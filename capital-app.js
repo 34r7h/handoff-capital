@@ -10,8 +10,8 @@ import {
 const API = 'https://handoff.lol/api/v1';
 const SITE = 'https://handoff.lol';
 const SOCNET = 'https://socnet.lol/api/v1/social';
-const SOURCE_URL = 'https://raw.githubusercontent.com/34r7h/handoff-pay/main/contracts/src/AgentShares.sol';
-const REPO_SOURCE = 'https://github.com/34r7h/handoff-pay/blob/main/contracts/src/AgentShares.sol';
+const SOURCE_URL = 'https://raw.githubusercontent.com/34r7h/handoff-capital/main/contracts/src/AgentShares.sol';
+const REPO_SOURCE = 'https://github.com/34r7h/handoff-capital/blob/main/contracts/src/AgentShares.sol';
 
 const CHAINS = {
   // sepolia.base.org answers eth_getLogs over 200 blocks at most, so events come from public RPCs with wider ranges

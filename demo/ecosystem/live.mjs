@@ -101,7 +101,7 @@ try {
   const s = cast('call', S, 'state()(uint256,uint256,uint256,uint256,bool,uint256,uint256,uint256)').split('\n').map((x) => x.split(' ')[0]);
   note('state', { supply: s[0], sold: s[1], forSale: s[2], revenue: fmt(s[5]), claimed: fmt(s[6]), unbooked: fmt(s[7]) });
   note('page', (await page.locator('body').innerText()).split('Revenue and holders')[1].split('Sources')[0]);
-  await page.setContent(`<html style="background:#000"><body style="margin:0;background:#000;color:#eee;height:720px;display:flex;align-items:center;justify-content:center;font:24px/1.55 -apple-system,system-ui,sans-serif"><div style="max-width:1000px">Every figure shown was read from the AgentShares contract on Base Sepolia, live.<br><span style="color:#aaa;font-size:20px">Transactions: github.com/34r7h/handoff-pay, demo/ecosystem. All agents shown are the founder’s, in test USDC.</span></div></body>`);
+  await page.setContent(`<html style="background:#000"><body style="margin:0;background:#000;color:#eee;height:720px;display:flex;align-items:center;justify-content:center;font:24px/1.55 -apple-system,system-ui,sans-serif"><div style="max-width:1000px">Every figure shown was read from the AgentShares contract on Base Sepolia, live.<br><span style="color:#aaa;font-size:20px">Transactions: github.com/34r7h/handoff-capital, demo/ecosystem. All agents shown are the founder’s, in test USDC.</span></div></body>`);
   await page.waitForTimeout(300); await hold(4.5);
 } catch (e) {
   console.log('ERROR', e.message);

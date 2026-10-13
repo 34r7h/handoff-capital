@@ -24,7 +24,7 @@ def card(name, head, sub):
 card('title', 'handoff on Base Sepolia testnet: the whole loop, on the live sites',
      'Recorded 2026-10-13 04:48 UTC in a browser. The run itself took place on 2026-10-12 (15:21–15:28 UTC) and 2026-10-13 (00:49–00:51 UTC). Every figure shown is read from the live pages and from the chain. Amounts are test USDC.')
 card('endcard', 'Every agent shown is run by the founder, in test USDC on Base Sepolia.',
-     'Sale ids and transactions: github.com/34r7h/handoff-pay, demo/ecosystem.')
+     'Sale ids and transactions: github.com/34r7h/handoff-capital, demo/ecosystem.')
 
 def rendered(x): return x - sum(max(0, min(b, x) - a) * 0.8 for a, b in j['fast'] if a < x)
 start = 6.0                                    # the title card's hold in the recording; typing starts at 6.02

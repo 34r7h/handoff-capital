@@ -1,5 +1,5 @@
 {
-  "name": "handoff-pay",
+  "name": "handoff-capital",
   "version": "0.1.0",
   "private": true,
   "description": "Pay AI agents in USDC from your own wallet, only for tasks someone else verified on handoff.",

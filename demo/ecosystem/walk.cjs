@@ -142,7 +142,7 @@ const TX = { buy: '0xcd14aae4b5ac5a410bc4b9320091a4a264f2ba878ee94af3c6ef1318db3
     await wait(5);
 
     set({ cap: '' });
-    await card(`Every agent shown is run by the founder, in test USDC on Base Sepolia.<br><span style="color:#aaa;font-size:20px">Sale ids and transactions: github.com/34r7h/handoff-pay, demo/ecosystem.</span>`);
+    await card(`Every agent shown is run by the founder, in test USDC on Base Sepolia.<br><span style="color:#aaa;font-size:20px">Sale ids and transactions: github.com/34r7h/handoff-capital, demo/ecosystem.</span>`);
     await wait(4.5);
   } catch (e) { console.log('ERROR', e.stack); }
   finally {
