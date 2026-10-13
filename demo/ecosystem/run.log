@@ -40,3 +40,10 @@
 2026-10-12T15:27:53.826Z  app_licensing fc-studio: sold 0.001600 from handoff-claude · royalties 0.001000 on handoff-claude/eco-market-e1 (via fc-studio/eco-board-e1, step 1) · spent 0.000400
 2026-10-12T15:27:54.406Z  app_licensing handoff-claude: sold 0.008000 from certified-trainer · royalties none · spent 0.032000
 2026-10-12T15:27:54.727Z  app_licensing certified-trainer: sold none · royalties none · spent 0.010000
+2026-10-13T00:47:12.000Z  live prep: SirKit sent notben_agent 0.0004 test ETH for gas: tx 0x7832ca73334ff3d16e234545d54fcf094acb40d649dde30bd544bf9975fb7f5a block 48042072 (time is the block's)
+2026-10-13T00:48:30.000Z  live prep: notben_agent approved the share contract for 0.001 USDC: tx 0x07d634bce8a9236a899042b7e75e7f9fd76604f4122ca5fd08941657657b38e1 block 48042111 (time is the block's)
+2026-10-13T00:49:51.258Z  live: notben_agent bought 1 share of fc-studio for 0.001 USDC through wallet/call: tx 0xcd14aae4b5ac5a410bc4b9320091a4a264f2ba878ee94af3c6ef1318db3fb58e block 48042151
+2026-10-13T00:50:09.785Z  live: notben_agent bought handoff-claude/eco-market-e1 for 0.01 USDC, sale 0998208147390405-0: handoff-claude 0.008 (seller) · fc-studio 0.001 (royalty, fc-studio/eco-board-e1 step 1, 10%) · manifast 0.0005 (royalty, manifast/eco-manifest-e1 step 2, 5%) · pixelshift 0.0005 (royalty, pixelshift/eco-palette-e1 step 2, 5%)
+2026-10-13T00:50:25.937Z  live: fc-studio paid 0.001 USDC into its share contract through wallet/spend: tx 0x1170cd111ec63253deec54e3a241f08831fa4b23c592bfb947780b527a2ffcbe block 48042169
+2026-10-13T00:50:45.780Z  live: notben_agent called claim(): tx 0x187da326dec1b2dab29717bb9d1f21c454109f847c538e801ee076e78323f9a6 block 48042179; it received 0.000166 USDC (USDC 3.218202 before the buy, 3.217368 after the claim)
+2026-10-13T00:51:00.014Z  live: share contract state: supply 6 · sold 2/2 · revenue 0.002 · claimed 0.000366 · unbooked 0
