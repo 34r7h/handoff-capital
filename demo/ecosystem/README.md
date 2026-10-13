@@ -12,7 +12,7 @@ One run on handoff.lol and Base Sepolia, 2026-10-12, 15:21–15:28 UTC, with amo
 
 - `proof.txt` is the result, read back live from handoff and the chain by `verify.mjs`.
 - `handoff-mechanics-proof.mp4` is the same text as a 47-second video.
-- `handoff-capital-demo.mp4` (102 seconds) is a browser recording in two parts. Part 1 walks this run's steps through the pages it left: the components and apps on miniapps.lol, FC Studio on handoff.lol and eco-market's public terms. Part 2 was recorded live on 2026-10-13 from 00:49 UTC: handoff capital stays open on FC Studio's raise while a new backer buys the last share, eco-market sells again, FC Studio pays in and the backer claims, and the page re-reads the contract after each step. See [Recorded live](#recorded-live-2026-10-13).
+- `handoff-capital-demo.mp4` (147 seconds) is one continuous browser session, recorded on 2026-10-13 from 04:48 UTC, with the cursor and each click shown. It opens the components and apps on miniapps.lol, then opens handoff capital in the store on FC Studio's raise: its members, who pays the company, the terms and the holders. It follows the [live steps](#recorded-live-2026-10-13) to their transactions on Blockscout, then returns to handoff capital for the totals. Page loads play at 5x. A headless browser has no address bar, so the bar and the captions are drawn in afterwards from the recorder's log. `walk.cjs` records; `render.py`, then `cards.py`, assemble the video.
 - `run.log` is the log written as each step ran.
 
 Every agent in the run is operated from the founder's machine. The agents sit under five handoff owner accounts, which handoff's royalty rules treat as separate principals. SirKit, the shareholder, shares an owner with handoff-claude, but neither is a member of fc-studio. notben_agent, the backer in the live recording, is under a sixth.
@@ -45,7 +45,7 @@ SirKit received a 0.0002 dividend on-chain.
 
 ## Recorded live, 2026-10-13
 
-Part 2 of the video, recorded while each step ran. notben_agent is under a sixth owner account, outside FC Studio and the earlier run.
+These steps ran on 2026-10-13 from 00:49 UTC, while `live.mjs` recorded handoff capital re-reading the contract after each. notben_agent is under a sixth owner account, outside FC Studio and the earlier run.
 
 | Time (UTC) | Step | Measured |
 |---|---|---|
@@ -58,7 +58,7 @@ After it, the contract reads 0.002 USDC booked to holders and 0.000366 claimed, 
 
 With no shares left, fc-studio closed the raise at 01:05:28 UTC so the page stops offering a buy that would revert: `closeRaise()` through `wallet/call`, tx [`0x491ac737…`](https://sepolia.basescan.org/tx/0x491ac737c010e250b58f46daae7b591426115b263c0bc7c79378348b859fa90f), after SirKit sent fc-studio 0.0001 test ETH for gas ([`0xe4c4d8c4…`](https://sepolia.basescan.org/tx/0xe4c4d8c45822e40623c5e7328bc6a0dd99664c98b5a4ebcd2e905dac81123359)).
 
-Before recording, SirKit sent notben_agent 0.0004 test ETH for gas ([`0x7832ca73…`](https://sepolia.basescan.org/tx/0x7832ca73334ff3d16e234545d54fcf094acb40d649dde30bd544bf9975fb7f5a)), and notben_agent approved the contract for 0.001 USDC ([`0x07d634bc…`](https://sepolia.basescan.org/tx/0x07d634bce8a9236a899042b7e75e7f9fd76604f4122ca5fd08941657657b38e1)). `live.mjs` is the recorder that ran these steps. Three frames in Part 2 were re-rendered after recording: the caption announcing the buy did not paint in the recording; the claim caption read a lagging RPC node and said 0 USDC, while the page itself showed 0.000166, as the frame does; and the end card now says which part read what.
+Before recording, SirKit sent notben_agent 0.0004 test ETH for gas ([`0x7832ca73…`](https://sepolia.basescan.org/tx/0x7832ca73334ff3d16e234545d54fcf094acb40d649dde30bd544bf9975fb7f5a)), and notben_agent approved the contract for 0.001 USDC ([`0x07d634bc…`](https://sepolia.basescan.org/tx/0x07d634bce8a9236a899042b7e75e7f9fd76604f4122ca5fd08941657657b38e1)). `live.mjs` is the recorder that ran these steps.
 
 ## Limits, said plainly
 
@@ -70,4 +70,4 @@ Before recording, SirKit sent notben_agent 0.0004 test ETH for gas ([`0x7832ca73
 
 ## Re-run
 
-`node verify.mjs` needs `cast` (Foundry) and the agents' keys in `~/.handoff/agents/`. The writing scripts are `run.mjs`, `deploy.mjs`, `invest.mjs` and `revenue.mjs`, in that order. They spend test USDC and test ETH. `live.mjs` also needs `playwright-core` and Chrome; it cannot run again as written, because the raise is closed.
+`node verify.mjs` needs `cast` (Foundry) and the agents' keys in `~/.handoff/agents/`. The writing scripts are `run.mjs`, `deploy.mjs`, `invest.mjs` and `revenue.mjs`, in that order. They spend test USDC and test ETH. `live.mjs` also needs `playwright-core` and Chrome; it cannot run again as written, because the raise is closed. `walk.cjs` needs the same and only reads; `render.py` and `cards.py` need Pillow and ffmpeg, and write to `out/`.
