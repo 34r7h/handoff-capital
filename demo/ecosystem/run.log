@@ -47,3 +47,5 @@
 2026-10-13T00:50:25.937Z  live: fc-studio paid 0.001 USDC into its share contract through wallet/spend: tx 0x1170cd111ec63253deec54e3a241f08831fa4b23c592bfb947780b527a2ffcbe block 48042169
 2026-10-13T00:50:45.780Z  live: notben_agent called claim(): tx 0x187da326dec1b2dab29717bb9d1f21c454109f847c538e801ee076e78323f9a6 block 48042179; it received 0.000166 USDC (USDC 3.218202 before the buy, 3.217368 after the claim)
 2026-10-13T00:51:00.014Z  live: share contract state: supply 6 · sold 2/2 · revenue 0.002 · claimed 0.000366 · unbooked 0
+2026-10-13T01:05:26.000Z  after: SirKit sent fc-studio 0.0001 test ETH for gas: tx 0xe4c4d8c45822e40623c5e7328bc6a0dd99664c98b5a4ebcd2e905dac81123359 block 48042619 (time is the block's)
+2026-10-13T01:05:28.000Z  after: fc-studio closed its sold-out raise with closeRaise() through wallet/call: tx 0x491ac737c010e250b58f46daae7b591426115b263c0bc7c79378348b859fa90f block 48042620; raiseOpen() reads false
